@@ -1,3 +1,7 @@
+/*******************************************************
+-> Library for reading and writing to serial ports
+*******************************************************/
+
 #ifndef _SERIAL_H_
 #define _SERIAL_H_
 
@@ -32,20 +36,22 @@
 #include <stdarg.h>
 
 
-class SERIAL {
+class SERIAL 
+{
+
 public:
-  int BAUDRATE;
-  int fd;
-  char com_port_path[100];
-  SERIAL(const char *com_port_path, int BAUDRATE);
-  int open_canonical(int packet_size, struct termios *oldtio, struct termios *newtio);
-  int open_non_canonical(struct termios *oldtio, struct termios *newtio);
-  void close(struct termios *oldtio);
-  int write_serial(char *data);
-  int read_serial(char *data, int length);
-  int avail_serial();
-  bool purge();
-private:
+    int BAUDRATE;
+    int fd;
+    char com_port_path[100];
+
+    SERIAL(const char *com_port_path, int BAUDRATE);
+    int openCanonical(int packet_size, struct termios *oldtio, struct termios *newtio);
+    int openNonCanonical(struct termios *oldtio, struct termios *newtio);
+    void close(struct termios *oldtio);
+    int writeSerial(char *data);
+    int readSerial(char *data, int length);
+    int availSerial();
+    bool purge();
   
 };
 
