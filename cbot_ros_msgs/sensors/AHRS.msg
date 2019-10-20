@@ -1,0 +1,11 @@
+float32 YawAngle
+float32 Pitch
+float32 Roll
+float32 YawRate
+float32 PitchRate
+float32 RollRate
+float32 Xaccel
+float32 Yaccel
+float32 Zaccel
+float32 Temp
+int32 AHRS_Status

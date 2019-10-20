@@ -1,0 +1,2 @@
+int16 GPS_OK
+int16 AHRS_OK
