@@ -1,6 +1,0 @@
-float32 yaw_lqr_kyaw
-float32 yaw_lqr_kr
-int16 update_settings
----
-float32 yaw_lqr_kyaw
-float32 yaw_lqr_kr

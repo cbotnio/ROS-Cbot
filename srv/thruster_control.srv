@@ -1,6 +1,0 @@
-float32 comm_mode
-float32 diff_mode
-int16 update
----
-float32 comm_mode
-float32 diff_mode 
