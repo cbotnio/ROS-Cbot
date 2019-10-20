@@ -5,7 +5,7 @@
   ****************************************************************
 */
   
-#include "asv_ros_revamp/guidance/matrix.hpp"
+#include "cbot_guidance/matrix.hpp"
 
 MATRIX::MATRIX(int row, int col)
 {
@@ -18,9 +18,9 @@ MATRIX::MATRIX()
 
 }
 
-MATRIX MATRIX::matrix_multiply(MATRIX m1, MATRIX m2)
+MATRIX MATRIX::multiply(MATRIX m1, MATRIX m2)
 {
-	int row,col,i;
+  int row,col,i;
   MATRIX r;
   
   for(row = 0; row < m1.row; row++)
@@ -39,7 +39,7 @@ MATRIX MATRIX::matrix_multiply(MATRIX m1, MATRIX m2)
   return r;
 }
 
-MATRIX MATRIX::matrix_subtract(MATRIX m1, MATRIX m2)
+MATRIX MATRIX::subtract(MATRIX m1, MATRIX m2)
 {
   int row,col ;
   MATRIX r;  
@@ -53,7 +53,7 @@ MATRIX MATRIX::matrix_subtract(MATRIX m1, MATRIX m2)
   return r;
 }
 
-MATRIX MATRIX::matrix_add(MATRIX m1, MATRIX m2)
+MATRIX MATRIX::add(MATRIX m1, MATRIX m2)
 {  
   int row,col ;
   MATRIX r;
@@ -66,7 +66,7 @@ MATRIX MATRIX::matrix_add(MATRIX m1, MATRIX m2)
    return r;
 }
 
-MATRIX MATRIX::matrix_transpose(MATRIX m)
+MATRIX MATRIX::transpose(MATRIX m)
 { 
   int row,col;
   MATRIX r;
