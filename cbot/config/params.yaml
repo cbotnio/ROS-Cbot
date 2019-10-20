@@ -8,4 +8,3 @@ Controller_ON: 1
 HIL_ON: 1
 HIL_port: "/dev/ttyS85"
 HIL_baud: B9600
-# Add more Variable for configuration of other sensors 
