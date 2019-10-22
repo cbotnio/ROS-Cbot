@@ -1,0 +1,3 @@
+HIL_ON: 1
+HIL_port: "/dev/ttyS85"
+HIL_baud: B9600

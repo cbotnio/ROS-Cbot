@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>
+    <node name="control_node" pkg="cbot_control" type="control_node" output="screen">
+    </node>
+</launch>

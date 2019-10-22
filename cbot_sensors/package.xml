@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<package>
+  <name>cbot_sensors</name>
+  <version>0.1.0</version>
+  <description>The CBOT sensors package</description>
+
+  <maintainer email="lakshadeep.naik@gmail.com">Lakshadeep Naik</maintainer>
+
+  <license>GPLv3</license>
+
+  <author email="lakshadeep.naik@gmail.com">Lakshadeep Naik</author>
+
+
+  <build_depend>message_generation</build_depend>
+  <build_depend>cbot_ros_msgs</build_depend>
+  <build_depend>cbot_common</build_depend>
+  <build_depend>roscpp</build_depend>
+
+  <run_depend>message_runtime</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>cbot_ros_msgs</run_depend>
+  <run_depend>cbot_common</run_depend>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+  <!-- Other tools can request additional information be placed here -->
+
+  </export>
+</package>

@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <rosparam file="$(find cbot_navigation)/config/params.yaml" command="load" />
+    <node name="navigation_node" pkg="cbot_navigation" type="navigation_node" output="screen">
+    </node>
+</launch>

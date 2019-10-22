@@ -1,0 +1,10 @@
+reference_latitude: 15.455296
+reference_longitude: 73.8025609
+GPS_port: "/dev/ttyS81"
+GPS_baudrate: B9600
+AHRS_port: "/dev/ttyS83"
+AHRS_baudrate: B38400
+Controller_ON: 1
+HIL_ON: 1
+HIL_port: "/dev/ttyS85"
+HIL_baud: B9600
