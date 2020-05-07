@@ -1,5 +1,5 @@
 # ROS-Cbot
-The C-Bot is an underwater robot for autonomous coral reef monitoring  developed by CSIR National Institue of Oceangraphy
+The C-Bot is an underwater robot for autonomous coral reef monitoring  developed by CSIR National Institue of Oceangraphy, Dona Paula, Goa, India.
 The C-Bot has following capabilities
 1. Heading Control
 2. Depth Control
