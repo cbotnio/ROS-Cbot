@@ -17,21 +17,43 @@ params = {"wpt": ["position", "depth", "speed", "heading", "captureRadius", "sli
 		  "constPitch": ["pitch"],
 		  "loiter": ["timeout"]}
 
+overrideParams = {"constDepth": ["depth"],
+				  "constSpeed": ["speed"],
+				  "constHeading": ["heading"],
+				  "constPitch": ["pitch"],
+				  "loiter": ["timeout"]}
+
+commentTag = "#"
+
 MissionDict = {}
 MissionNameTable = {}
 BHVNameTable = {}
+lineCount = 0
 
 def readNewLine(splitStr = ' '):
-	global f
-	line = (f.readline()).strip()
+	global lineCount
+	line = f.readline()
+	try:
+		commentIndex = line.index(commentTag)
+		line = line[0:commentIndex].strip()
+	except:
+		line = line.strip()
+	lineCount +=1
+
 	while(line==''):
-		line = (f.readline()).strip()
+		line = f.readline()
+		try:
+			commentIndex = line.index(commentTag)
+			line = line[0:commentIndex].strip()
+		except:
+			line = line.strip()
+		lineCount +=1
 	line = line.split(splitStr)
 	line = [x.strip() for x in line]
 	return line
 
 def addData(mission,data,override):
-	global params, MissionNameTable
+	global MissionNameTable
 
 	missionType = mission[0]
 	line = readNewLine(splitStr = ':')	
@@ -39,7 +61,7 @@ def addData(mission,data,override):
 		return MissionNameTable[line[0]][data]
 		
 	while(line[0] != "end"):
-		elif(line[0] in params[missionType]):
+		if(line[0] in params[missionType]):
 			data[line[0]] = ','.join(line[1:])
 		line = readNewLine(splitStr = ':')
 
@@ -47,13 +69,15 @@ def addData(mission,data,override):
 		data[key] = override[key]
 
 def updateOverride(missionType,override):
-	global f,params
 	line = readNewLine(splitStr = ':')
 	if(line[0]=="vars"):
 		while(line[0]!="end"):
 			line = readNewLine(splitStr = ':')
-			if(line[0] in params[missionType]):
+			if(line[0] in overrideParams[missionType]):
 				override[line[0]] = ','.join(line[1:])
+			elif(line[0]!="end"):
+				err = "Expected a \"end\" statement before line " + str(lineCount)
+				raise SyntaxError(err)
 	return override
 
 
@@ -108,33 +132,32 @@ def parseMission(line,count, override, suffix, singleMission):
 	return singleMission
 
 def main():
-	line = f.readline()
+	line = readNewLine()
 	count = 0
-	while(line!='END'):
+
+	while(line[0]!='END'):
 		override = {}
 		singleMission = []
 		suffix = ""
 		count += 1
-		line2 = line.strip().split()
-		if(line2[0] in MissionNameTable.keys() or line2[0] in BHVNameTable.keys()):
-			MissionDict['M'+str(count)] = {}
-			MissionDict['M'+str(count)]["names"] = [line2[0]]
 
-
-		elif((line2[0] in MissionTypes["guidance"]) or (line2[0] in MissionTypes["guidance2"])):
+		if(line[0] in MissionNameTable.keys() or line[0] in BHVNameTable.keys()):
 			MissionDict['M'+str(count)] = {}
-			singleMission = parseMission(line2,count,override,suffix,singleMission)
+			MissionDict['M'+str(count)]["names"] = [line[0]]
+
+		elif((line[0] in MissionTypes["guidance"]) or (line[0] in MissionTypes["guidance2"])):
+			MissionDict['M'+str(count)] = {}
+			singleMission = parseMission(line,count,override,suffix,singleMission)
 			MissionDict['M'+str(count)]["names"] = singleMission
 
-		elif(line2[0] in MissionTypes["behaviour"]):
+		elif(line[0] in MissionTypes["behaviour"]):
 			MissionDict['M'+str(count)] = {}
-			MissionDict['M'+str(count)]["names"] = [line2[1]]
-			singleMission = parseMission(line2,count,override,suffix,singleMission)
-			BHVNameTable[line2[1]]["names"] = singleMission
+			MissionDict['M'+str(count)]["names"] = [line[1]]
+			singleMission = parseMission(line,count,override,suffix,singleMission)
+			BHVNameTable[line[1]]["names"] = singleMission
+		
+		line = readNewLine()
 
-		line = (f.readline()).strip()
-		while(line==''):
-			line = (f.readline()).strip()
 	Mission = {}
 	Mission["Missions"] = MissionDict
 	Mission["GuidanceNameTable"] = MissionNameTable
