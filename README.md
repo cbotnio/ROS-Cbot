@@ -14,4 +14,4 @@ The C-Bot is an underwater robot for autonomous coral reef monitoring  developed
 #### Developers:
 1. Pramod Maurya,
 2. Lakshadeep Naik
-3. Mohit Sushil
+3. Mohit Sushil Gupta
