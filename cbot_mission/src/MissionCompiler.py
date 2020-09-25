@@ -1,5 +1,5 @@
 import json
-	
+
 fileName = "Mission.txt"
 f = open(fileName,"r")
 
@@ -17,54 +17,77 @@ params = {"wpt": ["position", "depth", "speed", "heading", "captureRadius", "sli
 		  "constPitch": ["pitch"],
 		  "loiter": ["timeout"]}
 
+impParams = {"wpt": ["position","speed"],
+			 "lfw": ["position1", "position2", "speed"],
+			 "arc": ["centerCoord", "radius", "speed", "start"],
+			 "dock": ["position", 	"depth", "heading", "runwayLength"]}
+
 overrideParams = {"constDepth": ["depth"],
 				  "constSpeed": ["speed"],
 				  "constHeading": ["heading"],
 				  "constPitch": ["pitch"],
 				  "loiter": ["timeout"]}
 
-commentTag = "#"
+commentTag = "#" # Comment tag to be used in the mission file 
+missionEndTag = "END" # Defines the end of Mission file
 
 MissionDict = {}
 MissionNameTable = {}
 BHVNameTable = {}
-lineCount = 0
+
+lineCount = 0 # Variable to store line number to be used in case of error 
 
 def readNewLine(splitStr = ' '):
 	global lineCount
 	line = f.readline()
+	
+	# Check and remove comments in the line
 	try:
-		commentIndex = line.index(commentTag)
-		line = line[0:commentIndex].strip()
+		commentIndex = line.index(commentTag) # Get the index position of comment tag
+		line = line[0:commentIndex].strip() # Remove blank space from start and end
 	except:
-		line = line.strip()
-	lineCount +=1
+		line = line.strip() # Remove blank space from start and end
+	lineCount +=1 #Increment the line count 
 
+	# Loop to remove any empty lines read
 	while(line==''):
 		line = f.readline()
+		# Check and remove comments in the line
 		try:
 			commentIndex = line.index(commentTag)
 			line = line[0:commentIndex].strip()
 		except:
 			line = line.strip()
 		lineCount +=1
-	line = line.split(splitStr)
-	line = [x.strip() for x in line]
+
+	line = line.split(splitStr) # Split the line read based on the splitting variable
+	line = [x.strip() for x in line] # Remove start and end white space from every element in list
 	return line
 
 def addData(mission,data,override):
 	global MissionNameTable
 
 	missionType = mission[0]
-	line = readNewLine(splitStr = ':')	
+	line = readNewLine(splitStr = ':')
+
+	# Check if the mission is defined before
 	if(missionType in MissionNameTable.keys()):
 		return MissionNameTable[line[0]][data]
-		
+	
+	# Add data 
+	countImpParams = 0
+	missionName = mission[1]
 	while(line[0] != "end"):
 		if(line[0] in params[missionType]):
 			data[line[0]] = ','.join(line[1:])
+		if(line[0] in impParams[missionType]):
+			countImpParams+=1
 		line = readNewLine(splitStr = ':')
-
+	# Check for all compulsary parameters in mission
+	if(countImpParams != len(impParams[missionType])):
+		err = "Incomplete mission\n Mission Name: " + str(missionName) + "\n Type: " + str(missionType) + "\n Line Numer: " + str(lineCount)
+		raise Exception(err)
+	# Add override data
 	for key in override.keys():
 		data[key] = override[key]
 
@@ -133,23 +156,26 @@ def parseMission(line,count, override, suffix, singleMission):
 
 def main():
 	line = readNewLine()
-	count = 0
+	count = 0 # To store the mission number for Tag
 
-	while(line[0]!='END'):
+	while(line[0]!=missionEndTag):
 		override = {}
 		singleMission = []
 		suffix = ""
 		count += 1
 
+		# Check if the read line is name of pre-parsed behavior name
 		if(line[0] in MissionNameTable.keys() or line[0] in BHVNameTable.keys()):
 			MissionDict['M'+str(count)] = {}
 			MissionDict['M'+str(count)]["names"] = [line[0]]
 
+		# Check if the mission is a guidance
 		elif((line[0] in MissionTypes["guidance"]) or (line[0] in MissionTypes["guidance2"])):
 			MissionDict['M'+str(count)] = {}
 			singleMission = parseMission(line,count,override,suffix,singleMission)
 			MissionDict['M'+str(count)]["names"] = singleMission
 
+		# Check if the mission is a behaviour
 		elif(line[0] in MissionTypes["behaviour"]):
 			MissionDict['M'+str(count)] = {}
 			MissionDict['M'+str(count)]["names"] = [line[1]]
@@ -158,6 +184,7 @@ def main():
 		
 		line = readNewLine()
 
+	# Create the final dictionary to be returned
 	Mission = {}
 	Mission["Missions"] = MissionDict
 	Mission["GuidanceNameTable"] = MissionNameTable
@@ -165,6 +192,7 @@ def main():
 
 	f.close()
 
+	# Dump the mission dictionary as JSON file for the purpose of inspection
 	with open('result.json', 'w') as fp:
 		json.dump(Mission,fp,indent=4)
 		fp.close()
