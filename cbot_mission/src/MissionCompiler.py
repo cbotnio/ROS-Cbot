@@ -1,22 +1,18 @@
 import json
 
-fileName = "Mission.txt"
-f = open(fileName,"r")
+fileName = ""
 
 MissionTypes = {"guidance": ["wpt", "lfw", "arc", "dock"],
 				"guidance2": ["constDepth", "constHeading", "constPitch", "constSpeed", "surfacing"],
 				"behaviour":["loiter"]}
 
+# List of all possible paramerters for the guidance missions
 params = {"wpt": ["position", "depth", "speed", "heading", "captureRadius", "slipRadius", "timeout"],
 		  "lfw": ["position1", "position2", "depth", "speed", "heading", "captureRadius", "timeout"],
 		  "arc": ["centerCoord", "depth", "radius","speed", "heading", "captureRadius", "direction", "start", "timeout"],
-		  "dock": ["position", 	"depth", "heading", "runwayLength"],
-		  "constDepth": ["depth"],
-		  "constSpeed": ["speed"],
-		  "constHeading": ["heading"],
-		  "constPitch": ["pitch"],
-		  "loiter": ["timeout"]}
+		  "dock": ["position", 	"depth", "heading", "runwayLength"]}
 
+# List of parameters without which the mission would be invalid
 impParams = {"wpt": ["position","speed"],
 			 "lfw": ["position1", "position2", "speed"],
 			 "arc": ["centerCoord", "radius", "speed", "start"],
@@ -28,14 +24,28 @@ overrideParams = {"constDepth": ["depth"],
 				  "constPitch": ["pitch"],
 				  "loiter": ["timeout"]}
 
+safetyParams = ["maxDepth", "maxPitch", "maxRoll", "maxSpeed"]
+
 commentTag = "#" # Comment tag to be used in the mission file 
 missionEndTag = "END" # Defines the end of Mission file
 
 MissionDict = {}
 MissionNameTable = {}
 BHVNameTable = {}
+Safety = {}
 
 lineCount = 0 # Variable to store line number to be used in case of error 
+
+
+def parseSafetyParams():
+	line = readNewLine(splitStr=":")
+	while(line[0]!="end"):
+		if(line[0] in safetyParams):
+			Safety[line[0]] = line[1]
+		else:
+			err = "Invalid Syntax or missing \"end\" tag while parsing Safety Parameters before Line: " + str(lineCount)
+			raise SyntaxError(err)
+		line = readNewLine(splitStr=":")
 
 def readNewLine(splitStr = ' '):
 	global lineCount
@@ -49,7 +59,7 @@ def readNewLine(splitStr = ' '):
 		line = line.strip() # Remove blank space from start and end
 	lineCount +=1 #Increment the line count 
 
-	# Loop to remove any empty lines read
+	# Loop to skip any empty lines read
 	while(line==''):
 		line = f.readline()
 		# Check and remove comments in the line
@@ -74,19 +84,28 @@ def addData(mission,data,override):
 	if(missionType in MissionNameTable.keys()):
 		return MissionNameTable[line[0]][data]
 	
-	# Add data 
-	countImpParams = 0
+	countImpParams = {}
+	for key in impParams[missionType]:
+		countImpParams[key] = 0
+
 	missionName = mission[1]
+	# Add data 
 	while(line[0] != "end"):
 		if(line[0] in params[missionType]):
 			data[line[0]] = ','.join(line[1:])
+		else:
+			err = "Invalid syntax or a missing \"end\" statement.\n Mission Name: "+ missionName+"\n Mission Type: " + missionType + "\n Line Numer: " + str(lineCount)
+			raise SyntaxError(err)
 		if(line[0] in impParams[missionType]):
-			countImpParams+=1
+			countImpParams[line[0]] +=1
 		line = readNewLine(splitStr = ':')
+
 	# Check for all compulsary parameters in mission
-	if(countImpParams != len(impParams[missionType])):
-		err = "Incomplete mission\n Mission Name: " + str(missionName) + "\n Type: " + str(missionType) + "\n Line Numer: " + str(lineCount)
-		raise Exception(err)
+	for key in countImpParams.keys():
+		if(countImpParams[key]==0):
+			err = "Incomplete mission\n Mission Name: " + str(missionName) + "\n Type: " + missionType + "\n Line Numer: " + str(lineCount) + "\n Missing Parameter: " + key 
+			raise Exception(err)
+
 	# Add override data
 	for key in override.keys():
 		data[key] = override[key]
@@ -98,17 +117,22 @@ def updateOverride(missionType,override):
 			line = readNewLine(splitStr = ':')
 			if(line[0] in overrideParams[missionType]):
 				override[line[0]] = ','.join(line[1:])
-			elif(line[0]!="end"):
-				err = "Expected a \"end\" statement before line " + str(lineCount)
+			elif(line[0]!="end" or line[0]==missionEndTag):
+				err = "Invalid syntax or missing \"end\" statement before line " + str(lineCount)
 				raise SyntaxError(err)
+	else:
+		err = "Missing override Parameter \"vars\" at Line: " + str(lineCount) + "\n Mission Type: " + missionType 
+		raise Exception(err)
 	return override
 
 
 def parseMission(line,count, override, suffix, singleMission):
 	global MissionTypes, MissionNameTable, MissionDict, BHVNameTable
 	m = line[0]
+	# Check if the name is parsed previously as a behaviour
 	if(m in BHVNameTable.keys()):
 		singleMission.append(m)
+	# Check if the name is parsed previously as a guidance
 	elif(m in MissionNameTable.keys()):
 		singleMission.append(m + suffix)
 		if(suffix!=''):
@@ -118,11 +142,13 @@ def parseMission(line,count, override, suffix, singleMission):
 			for key in override.keys():
 				MissionNameTable[m + suffix]["data"][key] = override[key]
 
+	# Parse the new guidance mission
 	elif (m in MissionTypes["guidance"]):
 		singleMission.append(line[1] + suffix)
 		MissionNameTable[line[1] + suffix] = {"type": line[0], "data": {}}
 		addData(line,MissionNameTable[line[1] + suffix]["data"],override)
 
+	# Check if the mission is for overriding data
 	elif(m in MissionTypes["guidance2"]):
 		suffix += line[1]
 		override = updateOverride(m,override)
@@ -131,23 +157,31 @@ def parseMission(line,count, override, suffix, singleMission):
 			singleMission = parseMission(line,count,override,suffix, singleMission)
 			line = readNewLine()
 
+	# Check if the mission type is a new behavior
 	elif(m in MissionTypes["behaviour"]):
 		tout = {}
 		bhvMission = []
-		tout = updateOverride(m,tout)
-		BHVNameTable[line[1]] = {"type":m}
-		for key in tout.keys():
+		missionName = line[1]
+		tout = updateOverride(m,tout) # get the additional behaviour variables 
+		BHVNameTable[line[1]] = {"type":m} # Add behaviour type
+		for key in tout.keys():	# Add behaviour variables to mission data
 			BHVNameTable[line[1]][key] = tout[key]
 		line2 = readNewLine()
 		while(line2[0]!='end'):
+			if(line2[0]==missionEndTag):
+				err = "Reached the end of mission file \n Missing \"end\" tag.\n Mission Name:" + missionName +"\n Mission Type: " + m + "\n Line: " + str(lineCount)
+				raise SyntaxError(err)
 			singleMission = []
 			singleMission = parseMission(line2,count,override,suffix,singleMission)
-			if(line2[0] in BHVNameTable.keys()):
+			if(line2[0] in BHVNameTable.keys() or line2[0] in MissionNameTable.keys()):
 				bhvMission.append(line2[0]) 
 			elif(line2[0] in MissionTypes["behaviour"] or line2[0] in MissionTypes["guidance"]):
 				bhvMission.append(line2[1])
 			elif(line2[0] in MissionTypes["guidance2"]):
 				bhvMission.append(singleMission[0])
+			else:
+				err = "Invalid Syntax at Line: " + str(lineCount)
+				raise SyntaxError(err)
 			line2 = readNewLine()
 		BHVNameTable[line[1]]["names"] = bhvMission
 		return bhvMission
@@ -156,7 +190,7 @@ def parseMission(line,count, override, suffix, singleMission):
 
 def main():
 	line = readNewLine()
-	count = 0 # To store the mission number for Tag
+	count = 0 # To store the mission number
 
 	while(line[0]!=missionEndTag):
 		override = {}
@@ -164,8 +198,13 @@ def main():
 		suffix = ""
 		count += 1
 
+		# Parse Safety params
+		if(line[0]=="Safety"):
+			count-=1
+			parseSafetyParams()
+
 		# Check if the read line is name of pre-parsed behavior name
-		if(line[0] in MissionNameTable.keys() or line[0] in BHVNameTable.keys()):
+		elif(line[0] in MissionNameTable.keys() or line[0] in BHVNameTable.keys()):
 			MissionDict['M'+str(count)] = {}
 			MissionDict['M'+str(count)]["names"] = [line[0]]
 
@@ -189,10 +228,12 @@ def main():
 	Mission["Missions"] = MissionDict
 	Mission["GuidanceNameTable"] = MissionNameTable
 	Mission["BHVNameTable"] = BHVNameTable
+	Mission["Safety"] = Safety
 
-	f.close()
+	f.close() # Close the mission file
 
-	# Dump the mission dictionary as JSON file for the purpose of inspection
+	# Dump the mission dictionary as JSON file for the purpose of testing
+	# This can be removed for final implementation
 	with open('result.json', 'w') as fp:
 		json.dump(Mission,fp,indent=4)
 		fp.close()
@@ -206,4 +247,4 @@ def readMission(filename):
 	return main()
 
 if __name__=="__main__":
-	main()
+	readMission(filename="Mission.txt")
