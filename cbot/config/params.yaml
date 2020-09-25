@@ -1,10 +1,24 @@
-reference_latitude: 15.455296
-reference_longitude: 73.8025609
-GPS_port: "/dev/ttyS81"
-GPS_baudrate: B9600
-AHRS_port: "/dev/ttyS83"
-AHRS_baudrate: B38400
-Controller_ON: 1
-HIL_ON: 1
-HIL_port: "/dev/ttyS85"
+reference_latitude: 15.4507
+reference_longitude: 73.8041
+
+Sensor/Names: "GPS, AHRS"
+
+GPS/port: "/home/mohit/nio/src/gps-read"
+GPS/baudrate: B9600
+GPS/status: 1
+
+AHRS/port: "/home/mohit/nio/src/ahrs-read"
+AHRS/baudrate: B115200
+AHRS/status: 1
+
+HIL_port: "/home/mohit/nio/src/thr-read"
 HIL_baud: B9600
+
+Controller_ON: 1
+GUIDANCE_ON: 1
+HIL_ON: 1
+
+Mode: "AUV"
+Status: "Drive"
+
+MissionStatus : "STOPPED" #RUNNING,PAUSED,STOPPED

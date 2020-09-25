@@ -21,10 +21,11 @@ add_service_files(
   DIRECTORY srv
   FILES
   ControllerInputs.srv
-  ControllerSettings.srv
   GuidanceInputs.srv
+  ControllerSettings.srv
   ThrusterControl.srv
 )
+
 
 generate_messages(
   DEPENDENCIES

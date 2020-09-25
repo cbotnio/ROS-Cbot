@@ -1,0 +1,101 @@
+{
+    "GuidanceNameTable": {
+        "WPTL2": {
+            "data": {
+                "position": "(15.4509,73.8043)", 
+                "speed": "0.5", 
+                "heading": "0", 
+                "slipRadius": "0", 
+                "captureRadius": "0"
+            }, 
+            "type": "wpt"
+        }, 
+        "Home": {
+            "data": {
+                "position": "(15.4507,73.8041)", 
+                "speed": "0.5", 
+                "heading": "0", 
+                "slipRadius": "0", 
+                "captureRadius": "0"
+            }, 
+            "type": "wpt"
+        }, 
+        "WPT1": {
+            "data": {
+                "position": "(15.4509,73.8041)", 
+                "speed": "0.5", 
+                "heading": "0", 
+                "slipRadius": "0", 
+                "captureRadius": "0"
+            }, 
+            "type": "wpt"
+        }, 
+        "WPTL4": {
+            "data": {
+                "position": "(15.4508,73.8041)", 
+                "speed": "0.5", 
+                "heading": "0", 
+                "slipRadius": "0", 
+                "captureRadius": "0"
+            }, 
+            "type": "wpt"
+        }, 
+        "WPTL3": {
+            "data": {
+                "position": "(15.4508,73.8043)", 
+                "speed": "0.5", 
+                "heading": "0", 
+                "slipRadius": "0", 
+                "captureRadius": "0"
+            }, 
+            "type": "wpt"
+        }
+    }, 
+    "Missions": {
+        "M5": {
+            "names": [
+                "Home"
+            ]
+        }, 
+        "M4": {
+            "names": [
+                "LTnext"
+            ]
+        }, 
+        "M1": {
+            "names": [
+                "Home"
+            ]
+        }, 
+        "M3": {
+            "names": [
+                "LTnext"
+            ]
+        }, 
+        "M2": {
+            "names": [
+                "LT1"
+            ]
+        }
+    }, 
+    "BHVNameTable": {
+        "LT1": {
+            "type": "loiter", 
+            "names": [
+                "WPT1", 
+                "WPTL2", 
+                "WPTL3", 
+                "WPTL4"
+            ], 
+            "timeout": "300"
+        }, 
+        "LTnext": {
+            "type": "loiter", 
+            "names": [
+                "LT1", 
+                "LT1"
+            ], 
+            "timeout": "100"
+        }
+    }
+}

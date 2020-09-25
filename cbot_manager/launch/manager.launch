@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+	<node pkg="cbot_manager" name="cbotManager" type="cbot_gui.py" output="screen"/>
+</launch>

@@ -3,7 +3,12 @@
 #include "cbot_ros_msgs/GPS.h"
 #include "cbot_ros_msgs/AHRS.h"
 
-int GPS_status, AHRS_status;
+#define maxRoll 25 //degrees
+#define maxPitch 25 //degrees
+
+
+double roll, rollRate, pitch, pitchRate, yaw, yawRate;
+int AHRS_status, GPS_status;
 
 void gpsCallback(const cbot_ros_msgs::GPS::ConstPtr& msg)
 {
@@ -12,6 +17,12 @@ void gpsCallback(const cbot_ros_msgs::GPS::ConstPtr& msg)
 
 void ahrsCallback(const cbot_ros_msgs::AHRS::ConstPtr& msg)
 {
+    roll = msg->Roll;
+    pitch = msg->Pitch;
+    yaw = msg->YawAngle;
+    rollRate = msg->RollRate;
+    pitchRate = msg->PitchRate;
+    yawRate = msg->YawRate;
     AHRS_status = msg->AHRS_Status;
 }
 
@@ -37,6 +48,17 @@ void sensorsStatusCallback(const cbot_ros_msgs::SensorsStatus::ConstPtr& msg)
     else
     {
         ROS_WARN("[SAFETY NODE] GPS FAIL");
+    }
+}
+
+void checkRotations(){
+    if(fabs(roll)>maxRoll){
+        ROS_WARN("[SAFETY NODE] ROLL ANGLE REACHED LIMIT \n TURNING OFF THRUSTERS");
+        ros::param::set("/HIL",0);
+    }
+    if(fabs(pitch)>maxPitch){
+        ROS_WARN("[SAFETY NODE] PITCH ANGLE REACHED LIMIT \n TURNING OFF THRUSTERS");
+        ros::param::set("/HIL",0);
     }
 }
 

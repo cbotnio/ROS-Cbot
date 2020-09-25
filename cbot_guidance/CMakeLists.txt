@@ -32,7 +32,11 @@ add_library(guidance ${PROJECT_SOURCE_DIR}/src/guidance.cpp)
 add_dependencies(guidance cbot_ros_msgs_generate_messages_cpp)
 target_link_libraries(guidance ${LIBS} ${catkin_LIBRARIES})
 
+add_library(utm ${PROJECT_SOURCE_DIR}/src/utm.cpp)
+add_dependencies(utm cbot_ros_msgs_generate_messages_cpp)
+target_link_libraries(utm ${LIBS} ${catkin_LIBRARIES})
+
 add_executable(guidance_node ${PROJECT_SOURCE_DIR}/src/guidance_node.cpp ${HEADER_FILES})
-add_dependencies(guidance_node cbot_ros_msgs_generate_messages_cpp)
-target_link_libraries(guidance_node ${LIBS} ${catkin_LIBRARIES} guidance matrix)
+add_dependencies(guidance_node cbot_ros_msgs_generate_messages_cpp )
+target_link_libraries(guidance_node ${LIBS} ${catkin_LIBRARIES} guidance matrix utm)
 
