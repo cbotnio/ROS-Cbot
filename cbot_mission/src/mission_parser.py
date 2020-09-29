@@ -1,5 +1,10 @@
 #! /usr/bin/env python
 
+###################################################
+# Mission Parser made for NIO
+# Author: Mohit Gupta, BITS Goa
+###################################################
+
 from __future__ import print_function
 import rospy
 import sys
@@ -31,15 +36,26 @@ guidanceInputs = {"X1": 0.0, "Y1": 0.0, "Z1": 0.0,
 guidance_srv = rospy.ServiceProxy('/guidance_inputs', GuidanceInputs)
 
 commonParams = ["depth", "speed", "heading"]
-params = {"wpt": ["position", "captureRadius", "slipRadius", "timeout"],
-		  "lfw": ["position1", "position2", "captureRadius", "timeout"],
-		  "arc": ["centerCoord", "radius", "captureRadius", "direction", "start", "timeout"],
-		  "dock": ["position", "runwayLength"],
+
+params = {"wpt": ["position", "depth", "speed", "heading", "captureRadius", "slipRadius", "timeout"],
+		  "lfw": ["position1", "position2", "depth", "speed", "heading", "captureRadius", "timeout"],
+		  "arc": ["centerCoord", "depth", "radius","speed", "heading", "captureRadius", "direction", "start", "timeout"],
+		  "dock": ["position", 	"depth", "heading", "runwayLength"],
 		  "constDepth": ["depth"],
 		  "constSpeed": ["speed"],
 		  "constHeading": ["heading"],
 		  "constPitch": ["pitch"],
 		  "loiter": ["timeout"]}
+
+impParams = {"wpt": ["position","speed"],
+			 "lfw": ["position1", "position2", "speed"],
+			 "arc": ["centerCoord", "radius", "speed", "start"],
+			 "dock": ["position", 	"depth", "heading", "runwayLength"]}
+
+def setSafety(safetyParameters):
+	for safetyParam in safetyParameters.keys():
+		if(rospy.has_param(safetyParam)):
+			rospy.set_param(safetyParam,safetyParameters[safetyParam])
 
 def guidanceStatusCallback(data):
 	global guidanceStatus
@@ -194,7 +210,8 @@ if __name__=='__main__':
 
 		
 		if(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive"):
-			print("in AUV")
+			setSafety(Mission["Safety"])
+
 			MissionList = ["M"+str(y) for y in sorted([int(x[1:]) for x in Mission["Missions"].keys()])]
 			print(MissionList)
 
@@ -202,5 +219,4 @@ if __name__=='__main__':
 				timeout = []
 				startTime = []
 				print(Mi)
-				# MissionMode = Mission["Missions"][Mi]["mode"]
 				parseSingleMission(Mission["Missions"][Mi]["names"],timeout,startTime)

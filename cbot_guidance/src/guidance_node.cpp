@@ -13,7 +13,7 @@ double vehicle_pos_x, vehicle_pos_y;
 double desired_heading, desired_thrust, nominal_velocity, desired_pitch;
 double desired_pos_x1,desired_pos_y1,desired_pos_x2,desired_pos_y2;
 bool guidance_status;
-int guidance_mode=-1;
+int guidance_mode=-1,flag=0;
 char Zone[20];
 
 ros::ServiceServer guidance_inputs_server;
@@ -50,12 +50,12 @@ bool guidanceInputsCallback(cbot_ros_msgs::GuidanceInputs::Request &req, cbot_ro
 void timerCallback(const ros::TimerEvent& event)
 {
     ros::param::get("/GUIDANCE_ON", guidanceON);
-    ros::param::set("HeadingCtrl", 0);
-    ros::param::set("PitchCtrl", 0);
-    ros::param::set("VelocityCtrl", 0);
-    ros::param::set("DepthCtrl", 0);
-    if(guidanceON)
-    {
+    if(guidanceON){
+        flag=0;
+        ros::param::set("HeadingCtrl", 0);
+        ros::param::set("PitchCtrl", 0);
+        ros::param::set("VelocityCtrl", 0);
+        ros::param::set("DepthCtrl", 0);
         desired_thrust = nominal_velocity * 4.5;
         if(guidance_mode == 0){
             ros::param::set("HeadingCtrl", 1);
@@ -103,6 +103,14 @@ void timerCallback(const ros::TimerEvent& event)
         {
             // printf("controller service called successfully\n");
         }
+    }
+    else if(!guidanceON && flag==0){
+        flag=1;
+        cbot_ros_msgs::ControllerInputs temp;
+        temp.request.desired_heading = GUIDANCE::desired_heading;
+        temp.request.desired_u = 0;
+        
+        ros::service::call("controller_inputs", temp);
     }
 }
 

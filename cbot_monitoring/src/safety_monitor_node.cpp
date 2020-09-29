@@ -3,16 +3,17 @@
 #include "cbot_ros_msgs/GPS.h"
 #include "cbot_ros_msgs/AHRS.h"
 
-#define maxRoll 25 //degrees
-#define maxPitch 25 //degrees
-
+double maxRoll=5.0, maxPitch=15.0; //degrees
+double maxVelocity=1.0, maxDepth = 10.0;
 
 double roll, rollRate, pitch, pitchRate, yaw, yawRate;
+double speed,depth;
 int AHRS_status, GPS_status;
 
 void gpsCallback(const cbot_ros_msgs::GPS::ConstPtr& msg)
 {
     GPS_status = msg->GPS_status;
+    speed = msg->vel;
 }
 
 void ahrsCallback(const cbot_ros_msgs::AHRS::ConstPtr& msg)
@@ -24,6 +25,7 @@ void ahrsCallback(const cbot_ros_msgs::AHRS::ConstPtr& msg)
     pitchRate = msg->PitchRate;
     yawRate = msg->YawRate;
     AHRS_status = msg->AHRS_Status;
+
 }
 
 void sensorsStatusCallback(const cbot_ros_msgs::SensorsStatus::ConstPtr& msg)
@@ -51,15 +53,36 @@ void sensorsStatusCallback(const cbot_ros_msgs::SensorsStatus::ConstPtr& msg)
     }
 }
 
-void checkRotations(){
+void checkSafety(){
     if(fabs(roll)>maxRoll){
         ROS_WARN("[SAFETY NODE] ROLL ANGLE REACHED LIMIT \n TURNING OFF THRUSTERS");
-        ros::param::set("/HIL",0);
+        ros::param::set("/HIL_ON",0);
     }
     if(fabs(pitch)>maxPitch){
         ROS_WARN("[SAFETY NODE] PITCH ANGLE REACHED LIMIT \n TURNING OFF THRUSTERS");
-        ros::param::set("/HIL",0);
+        ros::param::set("/HIL_ON",0);
     }
+    if(fabs(speed)>maxVelocity){
+        ROS_WARN("[SAFETY NODE] VELOCITY REACHED LIMIT \n TURNING OFF THRUSTERS");
+        ros::param::set("/HIL_ON",0);
+    }
+    if(fabs(depth)>maxDepth){
+        ROS_WARN("[SAFETY NODE] DEPTH REACHED LIMIT \n TURNING OFF THRUSTERS");
+        ros::param::set("/HIL_ON",0);
+    }
+}
+
+void timerCallback(const ros::TimerEvent& event){
+    if(ros::param::has("MaxVelocity"))
+        ros::param::get("MaxVelocity",maxVelocity);
+    if(ros::param::has("MaxDepth"))
+        ros::param::get("MaxDepth",maxDepth);
+    if(ros::param::has("MaxPitch"))
+        ros::param::get("MaxPitch",maxPitch);
+    if(ros::param::has("MaxRoll"))
+        ros::param::get("MaxRoll",maxRoll);
+
+    checkSafety();
 }
 
 int main(int argc, char *argv[])
@@ -71,6 +94,8 @@ int main(int argc, char *argv[])
     ros::Subscriber gps_sub = n.subscribe("/GPS", 1, gpsCallback);  
     ros::Subscriber ahrs_sub = n.subscribe("/AHRS", 1, ahrsCallback);  
     ros::Subscriber sensor_sub = n.subscribe("/SENSOR", 1, sensorsStatusCallback);  
+
+    ros::Timer timer = n.createTimer(ros::Duration(0.1),timerCallback);
 
     ros::spin();
 }

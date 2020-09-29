@@ -110,23 +110,6 @@ bool GUIDANCE::LineFollowGuidance(double veh_x, double veh_y, double Ts)
     return false;
 }
 
-// bool GUIDANCE::StKpGuidance(double veh_x, double veh_y)
-// {
-//     double x_err, y_err, z_err, dist_err;
-//     float eps = 0.0000001;
-
-//     x_err = GUIDANCE::desired_pos_x1 - veh_x;
-//     y_err = GUIDANCE::desired_pos_y1 - veh_y;
-//     dist_err = x_err*x_err + y_err*y_err - 1;
-//     if (fabs(x_err) < eps) x_err += x_err/fabs(x_err)*eps;     // Divide-by-zero prevention
-
-//     desired_heading = atan2(y_err, x_err) * RAD_2_DEG;
-    
-//     desiredThrustCMF = 0.5*asin(dist_err/(fabs(dist_err)+1))*2/PI;
-
-//     return false;
-// }
-
 bool GUIDANCE::StKpGuidance(double veh_x, double veh_y)
 {
     double x_err, y_err, z_err, dist_err;

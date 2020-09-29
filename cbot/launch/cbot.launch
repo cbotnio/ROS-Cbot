@@ -1,8 +1,9 @@
 <?xml version="1.0"?>
 <launch>
     <rosparam file="$(find cbot)/config/params.yaml" command="load" />
-    <!--node pkg="cbot_manager" name="cbotManager" type="cbot_gui.py" output="screen"/-->
+    <node pkg="cbot_manager" name="mediator" type="mediator.py" output="screen"/>
     <node name="thruster_node" pkg="cbot_actuators" type="thruster_node"></node>
+    <node name="thrusterSerial" pkg="cbot_actuators" type="thrusterSerial"></node>
     <node name="sensors_node" pkg="cbot_sensors" type="sensors_node"></node>
     <include file="$(find cbot_control)/launch/cbot_control.launch" />
     <node name="guidance_node" pkg="cbot_guidance" type="guidance_node" output="screen"></node>

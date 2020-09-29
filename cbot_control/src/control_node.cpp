@@ -14,7 +14,7 @@ double desired_heading, desired_thrust, desired_pitch, desired_depth=1, desired_
 double yaw, yaw_rate, pitch, pitch_rate,roll=0, last_pitch, last_pitch_rate, Ts, depth,Vx,Vy,Vz;
 double common_mode_F = 0, differential_mode_F = 0;
 double common_mode_V = 0, differential_mode_V = 0;
-int Controller_ON, HeadingCtrlON, PitchCtrlON, VelocityCtrlON, DepthCtrlON, first_diff_pitch=0;
+int Controller_ON, HeadingCtrlON, PitchCtrlON, VelocityCtrlON, DepthCtrlON, first_diff_pitch=0, flag=0;
 
 
 void ahrsCallback(const cbot_ros_msgs::AHRS::ConstPtr& msg)
@@ -79,7 +79,8 @@ void timerCallback(const ros::TimerEvent& event)
     double u = getBodyVel();
     if(Controller_ON)
     {
-        common_mode_F = desired_thrust;
+        flag=0;
+        // common_mode_F = desired_thrust;
         if(HeadingCtrlON)
             differential_mode_F = CONTROLLERS::lqr_yaw(desired_heading, yaw, yaw_rate, Ts);
         else
@@ -98,23 +99,26 @@ void timerCallback(const ros::TimerEvent& event)
             common_mode_F = 0;
 
         // printf("u: %f | CF %f | DF %f | CV %f | DV %f\n",u, common_mode_F, differential_mode_F,common_mode_V, differential_mode_V);
-    }
-    else{
-        common_mode_F = 0;
-        differential_mode_F = 0;
-        common_mode_V = 0;
-        differential_mode_V = 0;
-    }
     
-    cbot_ros_msgs::ThrusterControl temp;
-    temp.request.comm_mode_F = common_mode_F;
-    temp.request.diff_mode_F = differential_mode_F;
-    temp.request.comm_mode_V = common_mode_V;
-    temp.request.diff_mode_V = differential_mode_V;
-    temp.request.update = 1;
-    
-    if (ros::service::call("thruster_control", temp))
-    {
+        cbot_ros_msgs::ThrusterControl temp;
+        temp.request.comm_mode_F = common_mode_F;
+        temp.request.diff_mode_F = differential_mode_F;
+        temp.request.comm_mode_V = common_mode_V;
+        temp.request.diff_mode_V = differential_mode_V;
+        temp.request.update = 1;
+        
+        if (ros::service::call("thruster_control", temp))
+        {
+        }
+    }
+    else if(!Controller_ON && flag==0){
+        flag=1;
+        cbot_ros_msgs::ThrusterControl temp;
+        temp.request.comm_mode_F = 0;
+        temp.request.diff_mode_F = 0;
+        temp.request.comm_mode_V = 0;
+        temp.request.diff_mode_V = 0;
+        temp.request.update = 1;
     }
 }
 

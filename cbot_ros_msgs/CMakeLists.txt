@@ -8,6 +8,7 @@ add_message_files(
   FILES
   AHRS.msg
   GPS.msg
+  ThrusterData.msg
 )
 
 add_message_files(

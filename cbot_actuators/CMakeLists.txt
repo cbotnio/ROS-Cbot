@@ -29,3 +29,7 @@ add_executable(thruster_node ${PROJECT_SOURCE_DIR}/src/thruster_node.cpp ${HEADE
 add_dependencies(thruster_node cbot_ros_msgs_generate_messages_cpp)
 target_link_libraries(thruster_node ${LIBS} ${catkin_LIBRARIES})
 
+add_executable(thrusterSerial ${PROJECT_SOURCE_DIR}/src/sendThrusterData.cpp ${HEADER_FILES})
+add_dependencies(thrusterSerial cbot_ros_msgs_generate_messages_cpp)
+target_link_libraries(thrusterSerial ${LIBS} ${catkin_LIBRARIES})
+
