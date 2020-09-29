@@ -218,14 +218,14 @@ while True:
 
 
     else:
-      window.Element('HeadingControlON').Update(False,disabled=True)
-      window.Element('HCtrl').Update(disabled=True)
-      window.Element('PitchControlON').Update(False,disabled=True)
-      window.Element('PCtrl').Update(disabled=True)
-      window.Element('DepthControlON').Update(False,disabled=True)
-      window.Element('DCtrl').Update(disabled=True)
-      window.Element('SpeedControlON').Update(False,disabled=True)
-      window.Element('SCtrl').Update(disabled=True)
+    	window.Element('HeadingControlON').Update(False,disabled=True)
+    	window.Element('HCtrl').Update(disabled=True)
+    	window.Element('PitchControlON').Update(False,disabled=True)
+    	window.Element('PCtrl').Update(disabled=True)
+    	window.Element('DepthControlON').Update(False,disabled=True)
+    	window.Element('DCtrl').Update(disabled=True)
+    	window.Element('SpeedControlON').Update(False,disabled=True)
+    	window.Element('SCtrl').Update(disabled=True)
 
     
     if(event=="Update"):

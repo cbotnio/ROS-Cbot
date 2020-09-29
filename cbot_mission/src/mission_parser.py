@@ -33,9 +33,17 @@ guidanceInputs = {"X1": 0.0, "Y1": 0.0, "Z1": 0.0,
 				  "mode": 0,
 				  "timeout": 0.0}
 
-guidance_srv = rospy.ServiceProxy('/guidance_inputs', GuidanceInputs)
+guidanceInputsDefault = {"X1": 0.0, "Y1": 0.0, "Z1": 0.0,
+						 "X2": 0.0, "Y2": 0.0, "Z2": 0.0,
+						 "heading": 0.0, "pitch": 0.0, "speed": 0.0,
+						 "Xc": 0.0, "Yc": 0.0, "Zc": 0.0, "radius": 0.0,
+						 "arc_follow_direction": 0, "start": "nearest",
+						 "runway": 1.0, "type": "vision", 
+						 "captureRadius": 1.0, "slipRadius": 2.0,
+						 "mode": 0,
+						 "timeout": float("inf")}
 
-commonParams = ["depth", "speed", "heading"]
+guidance_srv = rospy.ServiceProxy('/guidance_inputs', GuidanceInputs)
 
 params = {"wpt": ["position", "depth", "speed", "heading", "captureRadius", "slipRadius", "timeout"],
 		  "lfw": ["position1", "position2", "depth", "speed", "heading", "captureRadius", "timeout"],
@@ -47,10 +55,11 @@ params = {"wpt": ["position", "depth", "speed", "heading", "captureRadius", "sli
 		  "constPitch": ["pitch"],
 		  "loiter": ["timeout"]}
 
-impParams = {"wpt": ["position","speed"],
-			 "lfw": ["position1", "position2", "speed"],
-			 "arc": ["centerCoord", "radius", "speed", "start"],
-			 "dock": ["position", 	"depth", "heading", "runwayLength"]}
+modeTable = {"wpt": 0, "lfw": 1, "arc": 2, "stkp": 3}
+
+stopMissionFlag = 0
+
+missionsCompletedFlag = 0
 
 def setSafety(safetyParameters):
 	for safetyParam in safetyParameters.keys():
@@ -61,49 +70,26 @@ def guidanceStatusCallback(data):
 	global guidanceStatus
 	guidanceStatus = data.data
 
-def wpt(data):
-	global goalChanged, guidanceInputs
-	guidanceInputs["X1"] = data["position"][1:-1].split(',')[0]
-	guidanceInputs["Y1"] = data["position"][1:-1].split(',')[1]
-	guidanceInputs["captureRadius"] = data["captureRadius"]
-	guidanceInputs["slipRadius"] = data["slipRadius"]
-	guidanceInputs["mode"] = 0
-	try:
-		guidanceInputs["timeout"] = data["timeout"]
-	except:
-		guidanceInputs["timeout"] = float('inf')
-	addCommonData(data)
-
-def lfw(data):
-	global goalChanged, guidanceInputs
-	guidanceInputs["X1"] = data["position1"][1:-1].split(',')[0]
-	guidanceInputs["Y1"] = data["position1"][1:-1].split(',')[1]
-	guidanceInputs["X2"] = data["position2"][1:-1].split(',')[0]
-	guidanceInputs["Y2"] = data["position2"][1:-1].split(',')[1]
-	guidanceInputs["slipRadius"] = data["slipRadius"]
-	guidanceInputs["mode"] = 1
-	try:
-		guidanceInputs["timeout"] = data["timeout"]
-	except:
-		guidanceInputs["timeout"] = float('inf')
-	addCommonData(data)
-
-def stkp(data):
-	global goalChanged, guidanceInputs
-	guidanceInputs["X1"] = data["position1"][1:-1].split(',')[0]
-	guidanceInputs["Y1"] = data["position1"][1:-1].split(',')[1]
-	guidanceInputs["mode"] = 3
-	try:
-		guidanceInputs["timeout"] = data["timeout"]
-	except:
-		guidanceInputs["timeout"] = float('inf')
-	addCommonData(data)
-
-def addCommonData(data):
-	global guidanceInputs, commonParams
-	for key in commonParams:
-		if key in data.keys():
-			guidanceInputs[key] = data[key]
+def addData(message,MissionType):
+	global guidanceInputs
+	positionCount = 1
+	for key in message.keys():
+		try:
+			# print(key)
+			if("position" in key):
+				guidanceInputs["X"+str(positionCount)] = message[key][1:-1].split(',')[0]
+				guidanceInputs["Y"+str(positionCount)] = message[key][1:-1].split(',')[1]
+				positionCount+=1
+				# print("/////////////////")
+				# print(message[key][1:-1].split(',')[0])
+				# print("/////////////////")
+			elif(key == "mode"):
+				guidanceInputs[key] = modeTable[MissionType]
+			else:
+				guidanceInputs[key] = message[key]
+		except:
+			print("could not set key: ", key)
+			guidanceInputs[key] = guidanceInputsDefault[key]
 
 def sendMission():
 	global guidanceInputs,timeout
@@ -115,6 +101,8 @@ def sendMission():
 	miss.nominal_velocity = float(guidanceInputs["speed"])
 	miss.guidance_mode = float(guidanceInputs["mode"])
 	timeout = float(guidanceInputs["timeout"])
+	print(miss)
+	print("Sending mission from Function")
 	return guidance_srv(miss)
 
 def checkTimeout(startTime,timeout):
@@ -128,28 +116,40 @@ def checkTimeout(startTime,timeout):
 
 def updateTimeout(startTime, timeout):
 	difference = time.time() - startTime[-1]
-	startTime[-1] = time.time() 
+	# startTime[-1] = time.time() 
 	# To be completed
-	for i in range(len(startTime)-1):
-		# timeout[i] = 
-		startTime[i] += time.time()
+	for i in range(len(startTime)):
+		startTime[i] += difference
 
 def  checkStatus():
+	global stopMissionFlag
 	# Add all check conditions like pause and perform 
 	if(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive"):
-		return True
-	elif(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="pause"):
-		return False
-	else:
-		return False
+		stopMissionFlag = 0
+		rospy.set_param("/HIL_ON",1)
+		return 1
+	elif(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="park"):
+		try:
+			updateTimeout(startTime,timeout)
+		except:
+			pass
+		rospy.set_param("/HIL_ON",0)
+		stopMissionFlag = 0
+		return 2
+	elif(rospy.get_param('Mode').lower()!="rov" or (rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="stop")):
+		stopMissionFlag = 1
+		rospy.set_param("/HIL_ON",0)
+		return 3
 
 
 def parseSingleMission(names,timeout,startTime):
-	global guidanceInputs, guidanceStatus
+	global guidanceInputs, guidanceStatus, stopMissionFlag
 	i=0
 	bhvType = ""
 	flag=0
 	while i<len(names):
+		if(stopMissionFlag):
+			break
 		name = names[i]
 		print(name)
 		if(name in Mission["BHVNameTable"].keys()):
@@ -172,18 +172,27 @@ def parseSingleMission(names,timeout,startTime):
 
 		elif(name in Mission["GuidanceNameTable"].keys()):
 			MissionType = Mission["GuidanceNameTable"][name]["type"]
-			globals()[MissionType](Mission["GuidanceNameTable"][name]["data"])
+			addData(Mission["GuidanceNameTable"][name]["data"], MissionType)
 			response = sendMission()
-			print("Next Mission Sent")
+			print("Next Mission Sent: ", response)
 			guidanceStatus = False
 			try:
 				timeout.append(Mission["GuidanceNameTable"][name]["data"]["timeout"])
 			except:
 				timeout.append(float('inf'))
 			startTime.append(time.time())
-			while(not guidanceStatus):
-				# while(not checkStatus()):
-				# 	updateTimeout(startTime,timeout)
+			n = checkStatus()
+			while(not guidanceStatus and stopMissionFlag==0):
+				n = checkStatus()
+				if(stopMissionFlag==1):
+					break
+				elif(n==2):
+					while(n==2):
+						updateTimeout(startTime,timeout)
+						n=checkStatus()
+						if(stopMissionFlag==1):
+							break
+					
 				count = checkTimeout(startTime,timeout)
 				if(count==1):
 					break
@@ -201,22 +210,32 @@ def parseSingleMission(names,timeout,startTime):
 
 
 if __name__=='__main__':
-		rospy.init_node('mission_parser',disable_signals=True)
+		rospy.init_node('mission_parser')
 		guidanceStatusSub = rospy.Subscriber('/guidanceStatus',Bool, guidanceStatusCallback)
 		r = rospy.Rate(10)
 		print("Waiting for Server")
 		rospy.wait_for_service('/guidance_inputs')
 		print("Connected to Server")
-
 		
-		if(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive"):
-			setSafety(Mission["Safety"])
+		while not rospy.is_shutdown():
+			if(missionsCompletedFlag	):
+				rospy.set_param("Status","Stop")
+				missionsCompletedFlag = 0
 
-			MissionList = ["M"+str(y) for y in sorted([int(x[1:]) for x in Mission["Missions"].keys()])]
-			print(MissionList)
+			while(not (rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive")):
+				time.sleep(0.1)
+			checkStatus()
+			if(stopMissionFlag==0):
+				setSafety(Mission["Safety"])
 
-			for Mi in MissionList:
-				timeout = []
-				startTime = []
-				print(Mi)
-				parseSingleMission(Mission["Missions"][Mi]["names"],timeout,startTime)
+				MissionList = ["M"+str(y) for y in sorted([int(x[1:]) for x in Mission["Missions"].keys()])]
+				print(MissionList)
+
+				for Mi in MissionList:
+					if(stopMissionFlag):
+						break
+					missionsCompletedFlag = 1
+					timeout = []
+					startTime = []
+					print(Mi)
+					parseSingleMission(Mission["Missions"][Mi]["names"],timeout,startTime)

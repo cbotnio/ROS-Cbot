@@ -1,205 +1,169 @@
-lfw LFW1
-	position1: (15.4507,73.8041)
-	position2: (15.4512,73.8041)
-	speed: 0.5
-	timeout: 10000
+Safety
+	maxDepth : 10
+	maxPitch: 15
 end
 
-lfw LFW2
-	position1: (15.4512,73.8041)
-	position2: (15.4508,73.8045)
-	speed: 0.5
-	timeout: 10000
-end
-
-lfw LFW3
-	position1: (15.4508,73.8045)
-	position2: (15.4508,73.8053)
-	speed: 0.5
-	timeout: 10000
-end
-
-lfw LFW4
-	position1: (15.4508,73.8053)
-	position2: (15.4512,73.8053)
-	speed: 0.5
-	timeout: 10000
-end
-
-lfw LFW5
-	position1: (15.4512,73.8053)
-	position2: (15.4512,73.8045)
-	speed: 0.5
-	timeout: 10000
-end
-
-lfw LFW6
-	position1: (15.4512,73.8045)
-	position2: (15.4508,73.8045)
-	speed: 0.5
-	timeout: 10000
-end
-
-LFW1
-
-lfw LFW7
-	position1: (15.4508,73.8045)
-	position2: (15.4508,73.8047)
-	speed: 0.5
-	timeout: 10000
-end
-
-lfw LFW8
-	position1: (15.4508,73.8047)
-	position2: (15.4512,73.8047)
-	speed: 0.5
-	timeout: 10000
-end
-
-lfw LFW9
-	position1: (15.4512,73.8047)
-	position2: (15.4512,73.8049)
-	speed: 0.5
-	timeout: 10000
-end
-
-lfw LFW10
-	position1: (15.4512,73.8049)
-	position2: (15.4508,73.8049)
-	speed: 0.5
-	timeout: 10000
-end
-
-lfw LFW11
-	position1: (15.4508,73.8049)
-	position2: (15.4507,73.8041)
-	speed: 0.5
-	timeout: 10000
-end
-
-wpt WPT1
-	position: (15.4505,73.804)
-	speed:0.2
+wpt Home
+	position: (15.4507,73.8041)
+	speed:0.5
 	heading: 0
 	captureRadius:0
-	slipRadius:0 
-	timeout: 1
+	slipRadius:0
+	timeout: 20
+end
+
+wpt Home2
+	position: (15.4508,73.8041)
+	speed:0.5
+	heading: 0
+	captureRadius:0
+	slipRadius:0
+	timeout: 20
 end
 
 END
 
 loiter LT1
 	vars:
-		timeout: 20
+		timeout: 100
 	end
 
-	wpt WPTn
-		position: (15.4505,73.804)
-		speed:0.2
+	wpt WPT1
+		position: (15.4509,73.8041)
+		speed: 0.5
 		heading: 0
 		captureRadius:0
 		slipRadius:0 
-		timeout: 1
+		timeout: 10
+	end
+	
+	wpt WPTL2
+		position: (15.4509,73.8043)
+		speed:0.5
+		heading: 0
+		captureRadius:0
+		slipRadius:0 
+		timeout: 10
 	end
 
-	loiter LT2
-		vars:
-			timeout: 15
-		end
-
-		wpt WPTn2
-			position: (15.4505,73.804)
-			speed:0.2
+	wpt WPTL3
+			position:(15.4508,73.8043)
+			speed:0.5
 			heading: 0
 			captureRadius:0
-			slipRadius:0 
-			timeout: 1
-		end
+			slipRadius:0
+			timeout: 10
+	end
 
-		loiter LT3
-			vars:
-				timeout: 5
-			end
-
-			wpt WPTL3
-				position:(15.4505,73.804)
-				speed:0.2
-				heading: 0
-				captureRadius:0
-				slipRadius:0
-				timeout:2
-			end
-		end
-		wpt WPTL1
-			position:(15.4505,73.804)
-			speed:0
+	wpt WPTL4
+			position:(15.4508,73.8041)
+			speed:0.5
 			heading: 0
-			captureRadius: 0
-			slipRadius: 0
-			timeout:3
-		end
+			captureRadius:0
+			slipRadius:0
+			timeout: 10
 	end
 end
 
-wpt WPT2
-	position: (15.4505,73.804)
-	speed:2
+Home
+
+END
+
+wpt WPT3
+	position: (0,5)
+	speed:1
 	heading: 0
 	captureRadius:0
 	slipRadius:0 
-	timeout: 100
+	timeout: 20
+end
+
+wpt WPT4
+	position: (0,0)
+	speed:1
+	heading: 0
+	captureRadius:0
+	slipRadius:0 
+	timeout: 20
+end
+
+
+lfw LFW11l
+	point1: (1,2)
+	point2: (5,2)
+	speed:1l
+	heading: 1l
+	maxError: 1l
+	timeout:1l
+end
+
+arc ARC1
+	centerCoord: 1a
+	radius:1a
+	heading: a1
+	errMargin: 1a
+	direction: clockwise/anticlockwise
+	start: nearest/{position}
+	timeout: 
 end
 
 dock DOCK1
-	position: (15.4505,73.804)
+	position: out
 	heading: out
 end
 
 constDepth CD1
 	vars:
-		depth: 1
+		depth: over
 	end
 	dock DOCK1
-		position: (15.4505,73.804)
-		heading: 0
+		position: 1
+		heading: 2
 	end
 
 	constHeading HD1
 		vars:
-			heading: 90
+			heading: 100
 		end
 
 		DOCK1
 
 		constHeading HD2
 		vars:
-			heading: 45
+			heading: 200
 		end		
-		 LFW1
+			arc ARC2
+				centerCoord: 1a
+				radius:1a
+				heading: a1
+				errMargin: 1a
+				direction: clockwise/anticlockwise
+				start: nearest/{position}
+				timeout: sac
+			end
 		end
 	end
 end
 
 constPitch CP1
-	vars:
-		pitch: 10
+	vars
+		pitch: pit
 	end
-	LFW1
+
+	ARC1
 end
 
 
 
 constHeading
 	vars
-		heading: 20
+		heading: 
 	end
 
 	wpt
-		...
 	end
 	
 	lfw
-		...
 	end
 	... 
 end
@@ -247,6 +211,16 @@ loiter
 	timeout: 
 end
 
+surfacing
+	wpt
+	end
+
+	lfw
+	end
+	...
+	timeout: 
+end
+
 loiter
 		
 	constDept
@@ -268,7 +242,9 @@ loiter
 			end
 
 			...
+			timeout:
 		end
+		timeout:
 	end
 	timeout: 
 end
