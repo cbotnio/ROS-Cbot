@@ -2,16 +2,12 @@
 import PySimpleGUI27 as sg
 import os.path
 from PIL import Image
-import serial, time
+import serial, time, re
+import MissionCompiler, kmlCompiler
 
-ser = serial.Serial(port="/home/mohit/nio/src/GUI-write",baudrate=9600,writeTimeout=0.1,timeout=0.01,rtscts=True,dsrdtr=True)
-
-# sizeImage = (500,500)
-# imageName = "/home/mohit/nio/src/ROS-Cbot-master/cbot_manager/src/cbot_image.png"
-# newImageName = "/home/mohit/nio/src/ROS-Cbot-master/cbot_manager/src/cbot_image_resized.png"
-# image = Image.open(imageName)
-# image = image.resize((sizeImage))
-# image.save(newImageName)
+serialPortName = "/tmp/GUI-write"
+serialBaudrate = 9600
+ser = serial.Serial(port=serialPortName,baudrate=serialBaudrate,writeTimeout=0.1,timeout=0.01,rtscts=True,dsrdtr=True)
 
 statusTextFont = ("Helvetica",12)
 statusDataSize = (10,1)
@@ -25,13 +21,20 @@ safetyParams = {"MaxDepth": 10,"MaxPitch":15, "MaxVelocity": 1}
 HeartbeatTimeout = 5.0
 heartbeatRate = 1
 
-stepSizeVelocity = 0.1
-stepSizeDepth = 0.1
-stepSizePitch = 1.0
-stepSizeRoll = 1.0
-stepSizeYaw = 1.0
+stepsVelocity = [-safetyParams["MaxVelocity"],safetyParams["MaxVelocity"],0.1]
+stepsDepth = [-safetyParams["MaxDepth"],safetyParams["MaxDepth"],0.1]
+stepsPitch = [-safetyParams["MaxPitch"],safetyParams["MaxPitch"],1]
+stepsRoll = [-90,90,1]
+stepsYaw = [-360,360,1]
 
 startTime = time.time()
+
+invalidMessageFlag = 0
+
+missionDictionary = {}
+
+def getRange(start,end,stepSize=0.1,precision=2):
+  return list([round(i*stepSize,precision) for i in range(int(float(start)/stepSize),int(float(end)/stepSize)+1)])
 
 status = [[sg.Frame(layout=[
           [sg.Text('Battery: ',font=statusTextFont, justification="left"),
@@ -65,13 +68,9 @@ buttons = [[sg.Frame(layout=[
                  sg.Checkbox('ROV', default=True, key='Teleop_mode',enable_events=True)]],
                              title='Select Mode',title_color='red'),
             sg.Frame(layout=[
-                [sg.T("Timeout: ", pad=((1,0),0)), 
-                 sg.In(str(HeartbeatTimeout),size=(10,1), disabled=False, background_color='white', text_color='black',key="HeartTimeout")]],
-                            title="Heartbeat Timeout", title_color="red")],
-            [sg.Frame(layout=[
-                [sg.Checkbox('Drive', default=False, key='Drive'),
-                 sg.Checkbox('Park', default=False, key='Park'),
-                 sg.Checkbox('Inactive', default=True, key='MissionInactive')]],
+                [sg.Checkbox('Drive', default=False, disabled=True, key='Drive',enable_events=True),
+                 sg.Checkbox('Park', default=False, disabled=True, key='Park',enable_events=True),
+                 sg.Checkbox('Stop', default=True, disabled=True, key='MissionInactive',enable_events=True)]],
                              title='AUV Mission Status',title_color='red')],
             [sg.Frame(layout=[
                 [sg.Checkbox('Guidance', default=False, key='GUIDANCE_ON'),
@@ -81,33 +80,43 @@ buttons = [[sg.Frame(layout=[
             [sg.Frame(layout=[
                 [sg.Checkbox('Individual', default=True, key='Thruster_M1',enable_events=True),
                  sg.Checkbox('CMDM', default=False, key='Thruster_M2',enable_events=True)],
-                [sg.T('T1:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T1"),
-                 sg.T('T2:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T2"),
-                 sg.T('T3:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T3"),
-                 sg.T('T4:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T4")],
-                [sg.T('Common Mode Forward:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="CMFCtrl"),
-                 sg.T('Diff Mode Forward:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="DMFCtrl")],
-                [sg.T('Common Mode Vertical:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="CMVCtrl"),
-                 sg.T('Diff Mode Vertical:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="DMVCtrl")]],
+                [sg.T('T1:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T1",enable_events=True),
+                 sg.T('T2:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T2",enable_events=True),
+                 sg.T('T3:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T3",enable_events=True),
+                 sg.T('T4:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T4",enable_events=True)],
+                [sg.T('Common Mode Forward:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="CMFCtrl",enable_events=True),
+                 sg.T('Diff Mode Forward:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="DMFCtrl",enable_events=True)],
+                [sg.T('Common Mode Vertical:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="CMVCtrl",enable_events=True),
+                 sg.T('Diff Mode Vertical:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="DMVCtrl",enable_events=True)]],
                             title="Thruster Inputs",title_color="red")],
             [sg.Frame(layout=[
                 [sg.Checkbox('Heading Control\t',disabled=True, default=False, key='HeadingControlON',enable_events=True),
-                 sg.T('Heading Angle:', pad=((1,0),0)), sg.Spin(values=[round(i*stepSizeYaw,2) for i in range(-int(360/stepSizeYaw),int(360/stepSizeYaw))],initial_value=0.0,size=(10,1),disabled=True, background_color='white', text_color='black',key="HCtrl")],
+                 sg.T('Heading Angle:', pad=((1,0),0)), sg.Spin(values=getRange(stepsYaw[0],stepsYaw[1],stepsYaw[2]),initial_value=0.0,size=(10,1),disabled=True, background_color='white', text_color='black',key="HCtrl")],
                 [sg.Checkbox('Pitch Control\t',disabled=True, default=False, key='PitchControlON',enable_events=True),
-                 sg.T('Pitch Angle:', pad=((1,0),0)), sg.Spin(values=[round(i*stepSizePitch,2) for i in range(-int(safetyParams["MaxPitch"]/stepSizePitch),int(safetyParams["MaxPitch"]/stepSizePitch+1))],initial_value=0.0,size=(10,1), disabled=True, background_color='white', text_color='black',key="PCtrl")],
+                 sg.T('Pitch Angle:', pad=((1,0),0)), sg.Spin(values=getRange(stepsPitch[0],stepsPitch[1],stepsPitch[2]),initial_value=0.0,size=(10,1), disabled=True, background_color='white', text_color='black',key="PCtrl")],
                 [sg.Checkbox('Depth Control\t',disabled=True, default=False, key='DepthControlON',enable_events=True),
-                 sg.T('Depth:', pad=((1,0),0)), sg.Spin(values=[round(i*stepSizeDepth,2) for i in range(0,int(safetyParams["MaxDepth"]/stepSizeDepth+1))],initial_value=0.0,size=(10,1), disabled=True, background_color='white', text_color='black',key="DCtrl")],
+                 sg.T('Depth:', pad=((1,0),0)), sg.Spin(values=getRange(stepsDepth[0],stepsDepth[1],stepsDepth[2]),initial_value=0.0,size=(10,1), disabled=True, background_color='white', text_color='black',key="DCtrl")],
                 [sg.Checkbox('Speed Control\t',disabled=True, default=False, key='SpeedControlON',enable_events=True),
-                 sg.T('Speed:', pad=((1,0),0)), sg.Spin(values=[round(i*stepSizeVelocity,2) for i in range(-int(safetyParams["MaxVelocity"]/stepSizeVelocity),int(safetyParams["MaxVelocity"]/stepSizeVelocity+1))],initial_value=0.0,size=(10,1), disabled=True, background_color='white', text_color='black',key="SCtrl")],],
+                 sg.T('Speed:', pad=((1,0),0)), sg.Spin(values=getRange(stepsVelocity[0],stepsVelocity[1],stepsVelocity[2]),initial_value=0.0,size=(10,1), disabled=True, background_color='white', text_color='black',key="SCtrl")],],
                             title="Controller Config",title_color="red")],
             [sg.Frame(layout=[
                 [sg.Text('File:', size=(8, 1)), sg.Input(key="MissionFile"), sg.FileBrowse()],
                 [sg.B('Compile', key="MissionCompile"),sg.B('Load', key="MissionLoad",disabled=True)]],
                             title="Mission File", title_color="red")],
-            [sg.Submit('Update')]
-            ]
-          
-safety =    [[sg.Frame(layout=[
+            [sg.Submit('Update')]]
+
+
+col1 =    [[sg.Frame(layout=[
+                [sg.T("Timeout: ", pad=((1,0),0)), 
+                 sg.In(str(HeartbeatTimeout),size=(10,1), disabled=False, background_color='white', text_color='black',key="HeartTimeout")]],
+                            title="Heartbeat Timeout", title_color="red")],
+            [sg.Frame(layout=[
+                [sg.T("Port Name: ", pad=((1,0),0)),
+                 sg.In(serialPortName,size=(10,1), disabled=False, background_color='white', text_color='black',key="PortName")],
+                [sg.T("Port baudrate: ", pad=((1,0),0)),
+                 sg.In(str(serialBaudrate),size=(10,1), disabled=False, background_color='white', text_color='black',key="PortBaudrate")]],
+                            title="Port", title_color="red")],
+            [sg.Frame(layout=[
                 [sg.T("Max Depth: ", pad=((1,0),0)), 
                  sg.In(str(safetyParams["MaxDepth"]),size=(10,1), disabled=False, background_color='white', text_color='black',key="MaxDepth")],
                 [sg.T("Max Pitch: ", pad=((1,0),0)), 
@@ -122,7 +131,7 @@ MFile =     [[sg.Frame(layout=[
                             title="Mission File", title_color="red")]]
 
 layout = [
-    [sg.Column(safety),
+    [sg.Column(col1),
     sg.VerticalSeparator(),
     sg.Column(buttons),
     sg.VerticalSeparator(),
@@ -132,6 +141,7 @@ layout = [
 window = sg.Window("CBOT Control", layout)
 
 def updateStatus():
+  global window
   ser.flushInput()
   readData = ser.readline().decode().strip().split(',')
   if(readData[0]=="MED"):
@@ -143,6 +153,94 @@ def updateStatus():
       except:
         pass
 
+def updatePort(portname,baudrate):
+	global serialBaudrate,serialPortName,ser,window
+	if(portname!=serialPortName):
+	  	try:
+	  		ser.port = portname
+	  		if(not ser.isOpen()):
+	  			ser.open()
+	  		serialPortName = portname
+	  	except:
+	  		ser.port = serialPortName
+	  		if(not ser.isOpen()):
+	  			ser.open()
+	  		sg.popup("Error, cannot open new port")
+	if(baudrate!=serialBaudrate):
+  		try:
+  			ser.baudrate = baudrate
+  			serialBaudrate = baudrate
+  		except:
+  			sg.popup("Error, could not set the new baudrate")
+
+	window.Element("PortName").Update(serialPortName)
+	window.Element("PortBaudrate").Update(serialBaudrate)
+
+def sendMessage(values):
+  global ser
+  message = "GUI,"
+  for key in values:
+    if (values[key]==True):
+      msg = "1"
+    elif(values[key]==False):
+      msg = "0"
+    elif(values[key]==""):
+      msg = "null"
+    else:
+      msg = str(values[key])
+    message += key + ":" + msg + ","
+  message += "\r\n"
+  print(message)
+  ser.flushOutput()
+  ser.write(message.encode())
+
+def checkValidNumber(num):
+  num = str(num)
+  return bool(re.match("^-?\d+?\.\d+?$", num)) or bool(re.match("^-?\d+?\.+?$", num)) or bool(re.match("^-?\d+$", num)) or bool(re.match("^.\d+?$", num)) 
+
+def updateHeartbeat(values):
+  global window, HeartbeatTimeout, invalidMessageFlag
+  if(checkValidNumber(values["HeartTimeout"])):
+    HeartbeatTimeout = float(values["HeartTimeout"])
+  else:
+    invalidMessageFlag = 1
+    sg.popup("Invalid Heartbeat Timeout")
+  values["HeartTimeout"] = HeartbeatTimeout
+  window.Element("HeartTimeout").Update(value=HeartbeatTimeout)
+  return values
+
+def updateSafetyParams(values):
+  global window, safetyParams, stepsVelocity, stepsDepth, stepsPitch, stepsYaw, invalidMessageFlag
+  invFlag = 0
+  if(checkValidNumber(values["MaxDepth"])):
+    safetyParams["MaxDepth"] = float(values["MaxDepth"])
+    stepsDepth[0:2] = [-safetyParams["MaxDepth"],safetyParams["MaxDepth"]]
+  else:
+    values["MaxDepth"] = safetyParams["MaxDepth"]
+    invFlag=1
+  if(checkValidNumber(values["MaxPitch"])):
+    safetyParams["MaxPitch"] = float(values["MaxPitch"])
+    stepsPitch[0:2] = [-safetyParams["MaxPitch"],safetyParams["MaxPitch"]]
+  else:
+    values["MaxPitch"] = safetyParams["MaxPitch"]
+    invFlag=1
+  if(checkValidNumber(values["MaxVelocity"])):
+    safetyParams["MaxVelocity"] = float(values["MaxVelocity"])
+    stepsVelocity[0:2] = [-safetyParams["MaxVelocity"],safetyParams["MaxVelocity"]]
+  else:
+    values["MaxVelocity"] = safetyParams["MaxVelocity"]
+    invFlag=1
+  if(invFlag):
+    invalidMessageFlag = 1
+    sg.popup("Invalid Safety Parameter")
+  values["MaxDepth"] = safetyParams["MaxDepth"]
+  values["MaxVelocity"] = safetyParams["MaxVelocity"]
+  values["MaxPitch"] = safetyParams["MaxPitch"]
+  window.Element("MaxDepth").Update(value=values["MaxDepth"])
+  window.Element("MaxVelocity").Update(value=values["MaxVelocity"])
+  window.Element("MaxPitch").Update(value=values["MaxPitch"])
+  return values
+
 def Timer(starttime):
   timeElapsed = time.time() - starttime
   if(timeElapsed>float(heartbeatRate)):
@@ -150,32 +248,95 @@ def Timer(starttime):
   else:
     return False
 
+def checkControlValues(values):
+  global window, invalidMessageFlag
+  if(not (checkValidNumber(values["HCtrl"]) and checkValidNumber(values["DCtrl"]) and checkValidNumber(values["PCtrl"]) and checkValidNumber(values["SCtrl"]))):
+    values["HCtrl"] = float(values["HCtrl"]) if(checkValidNumber(values["HCtrl"])) else 0.0
+    values["DCtrl"] = float(values["DCtrl"]) if(checkValidNumber(values["DCtrl"])) else 0.0
+    values["PCtrl"] = float(values["PCtrl"]) if(checkValidNumber(values["PCtrl"])) else 0.0
+    values["SCtrl"] = float(values["SCtrl"]) if(checkValidNumber(values["SCtrl"])) else 0.0
+    invalidMessageFlag = 1
+    sg.popup("Invalid Control Input")
+
+  window.Element('HCtrl').Update(value=values["HCtrl"])
+  window.Element('DCtrl').Update(value=values["DCtrl"])
+  window.Element('PCtrl').Update(value=values["PCtrl"])
+  window.Element('SCtrl').Update(value=values["SCtrl"])
+  return values
+
+def updateThrusters(values,mode=""):
+  global window, invalidMessageFlag
+  if(mode=="Update"):
+    if(not (checkValidNumber(values["T1"]) and checkValidNumber(values["T2"]) and checkValidNumber(values["T3"]) and checkValidNumber(values["T4"]) and checkValidNumber(values["CMFCtrl"]) and checkValidNumber(values["DMFCtrl"]) and checkValidNumber(values["CMVCtrl"]) and checkValidNumber(values["DMVCtrl"]))):
+      values["T1"] = float(values["T1"]) if(checkValidNumber(values["T1"])) else 0.0
+      values["T2"] = float(values["T2"]) if(checkValidNumber(values["T2"])) else 0.0
+      values["T3"] = float(values["T3"]) if(checkValidNumber(values["T3"])) else 0.0
+      values["T4"] = float(values["T4"]) if(checkValidNumber(values["T4"])) else 0.0
+      values["CMFCtrl"] = float(values["CMFCtrl"]) if(checkValidNumber(values["CMFCtrl"])) else 0.0
+      values["DMFCtrl"] = float(values["DMFCtrl"]) if(checkValidNumber(values["DMFCtrl"])) else 0.0
+      values["CMVCtrl"] = float(values["CMVCtrl"]) if(checkValidNumber(values["CMVCtrl"])) else 0.0
+      values["DMVCtrl"] = float(values["DMFCtrl"]) if(checkValidNumber(values["DMFCtrl"])) else 0.0
+      invalidMessageFlag = 1
+  
+  window.Element('CMFCtrl').Update(value=values["CMFCtrl"])
+  window.Element('DMFCtrl').Update(value=values["DMFCtrl"])
+  window.Element('CMVCtrl').Update(value=values["CMVCtrl"])
+  window.Element('DMVCtrl').Update(value=values["DMVCtrl"])
+  window.Element('T1').Update(value=values["T1"])
+  window.Element('T2').Update(value=values["T2"])
+  window.Element('T3').Update(value=values["T3"])
+  window.Element('T4').Update(value=values["T4"])
+  return values
+
 while True:
     event, values = window.read(timeout = 0.01)
     if(event == "Exit" or event == None):
         break
 
+    # Send heartbeat
     if(Timer(startTime)):
        ser.write(b"GUIHEARTBEAT\n")
        startTime = time.time()
 
     updateStatus()
 
-    if((values["AUV_mode"]==1 or values["Teleop_mode"]==1) and event=="Teleop_mode"):
+    
+    if(values["Teleop_mode"]==1 and event=="Teleop_mode"):
       window.Element("AUV_mode").Update(False)
       window.Element("THRUSTERS_ON").Update(value=False,disabled=False)
       window.Element("CONTROLLER_ON").Update(value=False,disabled=False)
       window.Element("GUIDANCE_ON").Update(value=False,disabled=False)
-    elif((values["Teleop_mode"]==1 or values["AUV_mode"]==1)and event=="AUV_mode"):
+      window.Element("Drive").Update(value=False,disabled=True)
+      window.Element("Park").Update(value=False,disabled=True)
+      window.Element("MissionInactive").Update(value=True,disabled=True)
+    elif(values["AUV_mode"]==1 and event=="AUV_mode"):
       window.Element("Teleop_mode").Update(False)
       window.Element("THRUSTERS_ON").Update(value=True,disabled=True)
       window.Element("CONTROLLER_ON").Update(value=True,disabled=True)
       window.Element("GUIDANCE_ON").Update(value=True,disabled=True)
+      window.Element("Drive").Update(value=False,disabled=False)
+      window.Element("Park").Update(value=False,disabled=False)
+      window.Element("MissionInactive").Update(value=True,disabled=False)
     elif(values["Teleop_mode"]==0 and values["AUV_mode"]==0):
       window.Element("THRUSTERS_ON").Update(value=False,disabled=True)
       window.Element("CONTROLLER_ON").Update(value=False,disabled=True)
       window.Element("GUIDANCE_ON").Update(value=False,disabled=True)
-      
+      window.Element("Drive").Update(value=False,disabled=True)
+      window.Element("Park").Update(value=False,disabled=True)
+      window.Element("MissionInactive").Update(value=True,disabled=True)
+
+    if(values["Drive"]==1 and event=="Drive"):
+    	window.Element("Drive").Update(value=True)
+    	window.Element("Park").Update(value=False)
+    	window.Element("MissionInactive").Update(value=False)
+    elif(values["Park"]==1 and event=="Park"):
+    	window.Element("Drive").Update(value=False)
+    	window.Element("Park").Update(value=True)
+    	window.Element("MissionInactive").Update(value=False)
+    elif(values["MissionInactive"]==1 and event=="MissionInactive"):
+    	window.Element("Drive").Update(value=False)
+    	window.Element("Park").Update(value=False)
+    	window.Element("MissionInactive").Update(value=True)
 
     if(values["Thruster_M1"]==1 and event=="Thruster_M2"):
       window.Element("Thruster_M1").Update(False)
@@ -192,6 +353,36 @@ while True:
     window.Element('DMFCtrl').Update(disabled=(values["THRUSTERS_ON"]==0 or values["Thruster_M2"]==0 or values["CONTROLLER_ON"]!=0))
     window.Element('CMVCtrl').Update(disabled=(values["THRUSTERS_ON"]==0 or values["Thruster_M2"]==0 or values["CONTROLLER_ON"]!=0))
     window.Element('DMVCtrl').Update(disabled=(values["THRUSTERS_ON"]==0 or values["Thruster_M2"]==0 or values["CONTROLLER_ON"]!=0))
+
+    if(event=="T1" or event=="T2" or event=="T3" or event=="T4"):
+      if(checkValidNumber(values["T1"]) and checkValidNumber(values["T2"])):
+        values["CMFCtrl"] = float(values["T1"])+float(values["T2"])
+        values["DMFCtrl"] = float(values["T1"])-float(values["T2"])
+      else:
+        values["CMFCtrl"] = 0
+        values["DMFCtrl"] = 0
+      if(checkValidNumber(values["T3"]) and checkValidNumber(values["T4"])):
+        values["CMVCtrl"] = float(values["T3"])+float(values["T4"])
+        values["DMVCtrl"] = float(values["T3"])-float(values["T4"])
+      else:
+        values["CMVCtrl"] = 0
+        values["DMVCtrl"] = 0
+      updateThrusters(values)
+
+    elif(event=="CMFCtrl" or event=="DMFCtrl" or event=="CMVCtrl" or event=="DMVCtrl"):
+      if(checkValidNumber(values["CMFCtrl"]) and checkValidNumber(values["DMFCtrl"])):
+        values["T1"] = (float(values["CMFCtrl"])+float(values["DMFCtrl"]))/2.0
+        values["T2"] = (float(values["CMFCtrl"])-float(values["DMFCtrl"]))/2.0
+      else:
+        values["T1"] = 0
+        values["T2"] = 0
+      if(checkValidNumber(values["CMVCtrl"]) and checkValidNumber(values["DMVCtrl"])):
+        values["T3"] = (float(values["CMVCtrl"])+float(values["DMVCtrl"]))/2.0
+        values["T4"] = (float(values["CMVCtrl"])-float(values["DMVCtrl"]))/2.0
+      else:
+        values["T3"] = 0
+        values["T4"] = 0
+      updateThrusters(values)
 
     if(values["CONTROLLER_ON"] and values["Teleop_mode"]==1):
       if(values['HeadingControlON']):
@@ -216,7 +407,6 @@ while True:
       window.Element('DepthControlON').Update(disabled=False)
       window.Element('SpeedControlON').Update(disabled=False)
 
-
     else:
       window.Element('HeadingControlON').Update(False,disabled=True)
       window.Element('HCtrl').Update(disabled=True)
@@ -229,28 +419,34 @@ while True:
 
     
     if(event=="Update"):
-      HeartbeatTimeout = values["HeartTimeout"]
-      safetyParams["MaxDepth"] = float(values["MaxDepth"])
-      safetyParams["MaxPitch"] = float(values["MaxPitch"])
-      safetyParams["MaxVelocity"] = float(values["MaxVelocity"])
-      window.Element("DCtrl").Update(values=[round(i*stepSizeDepth,2) for i in range(0,int(safetyParams["MaxDepth"]/stepSizeDepth+1))])
-      window.Element("PCtrl").Update(values=[round(i*stepSizePitch,2) for i in range(-int(safetyParams["MaxPitch"]/stepSizePitch),int(safetyParams["MaxPitch"]/stepSizePitch+1))])
-      window.Element("SCtrl").Update(values=[round(i*stepSizeVelocity,2) for i in range(-int(safetyParams["MaxVelocity"]/stepSizeVelocity),int(safetyParams["MaxVelocity"]/stepSizeVelocity+1))])
-      message = "GUI,"
-      for key in values:
-        if (values[key]==True):
-          msg = "1"
-        elif(values[key]==False):
-          msg = "0"
-        elif(values[key]==""):
-          msg = "null"
-        else:
-          msg = str(values[key])
-        message += key + ":" + msg + ","
-      message += "\r\n"
-      ser.flushOutput()
-      ser.write(message.encode())
+      invalidMessageFlag = 0
+      values = updateHeartbeat(values)
+      values = updateSafetyParams(values)
+      values = updateThrusters(values,mode="Update")
+      values = checkControlValues(values)
 
+      window.Element("DCtrl").Update(values=getRange(stepsYaw[0],stepsYaw[1],stepsYaw[2]))
+      window.Element("DCtrl").Update(values=getRange(stepsDepth[0],stepsDepth[1],stepsDepth[2]))
+      window.Element("PCtrl").Update(values=getRange(stepsPitch[0],stepsPitch[1],stepsPitch[2]))
+      window.Element("SCtrl").Update(values=getRange(stepsVelocity[0],stepsVelocity[1],stepsVelocity[2]))
+
+      updatePort(values["PortName"],values["PortBaudrate"])
+      if(not invalidMessageFlag):
+        sendMessage(values)
+      else:
+        sg.popup("Message not sent")
+
+    elif(event=="MissionCompile"):
+      if(values["MissionFile"]!="null"):
+        try:
+          missionDictionary = MissionCompiler.readMission(values["MissionFile"])
+          sg.popup("Compilation Successful")
+          window.Element("MissionLoad").Update(disabled=False)
+        except Exception as e:
+          sg.popup("Compilation Failed\nReason: ", missionDictionary)
+
+    elif(event=="MissionLoad"):
+      pass
 
 window.close()
 ser.close()

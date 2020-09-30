@@ -1,0 +1,43 @@
+{
+    "BHVNameTable": {},
+    "GuidanceNameTable": {
+        "Home": {
+            "data": {
+                "speed": "0.5",
+                "captureRadius": "0",
+                "slipRadius": "0",
+                "heading": "0",
+                "timeout": "20",
+                "position": "(15.4507,73.8041)"
+            },
+            "type": "wpt"
+        },
+        "Home2": {
+            "data": {
+                "speed": "0.5",
+                "captureRadius": "0",
+                "slipRadius": "0",
+                "heading": "0",
+                "timeout": "20",
+                "position": "(15.4508,73.8041)"
+            },
+            "type": "wpt"
+        }
+    },
+    "Missions": {
+        "M1": {
+            "names": [
+                "Home"
+            ]
+        },
+        "M2": {
+            "names": [
+                "Home2"
+            ]
+        }
+    },
+    "Safety": {
+        "maxDepth": "10",
+        "maxPitch": "15"
+    }
+}
