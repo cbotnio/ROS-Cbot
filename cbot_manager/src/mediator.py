@@ -110,7 +110,7 @@ def parseData():
 		else:
 			print("MODE not set to AUV")
 
-		elif(message["MissionInactive"]):
+		if(message["MissionInactive"]):
 			if(rospy.has_param("/Status")):
 				rospy.set_param("/Status","Stop")
 			else:
@@ -141,14 +141,15 @@ def parseData():
 			rospy.set_param("Mode","ROV")
 		else:
 			print("MODE not set to ROV")
-		if(rospy.has_param("Status")):
-			rospy.set_param("Status","Stop")
-		else:
-			print("Status not set to Stop")
 
 		if(message["GUIDANCE_ON"]):
 			pass
 		elif(message["CONTROLLER_ON"]):
+			if(rospy.has_param("Controller_ON")):
+				rospy.set_param("Controller_ON",message["CONTROLLER_ON"])
+			else:
+				print("Controller not set")
+			
 			ctr = ControllerInputsRequest()
 			if(rospy.has_param("HeadingCtrl")):
 				rospy.set_param("HeadingCtrl",message["HeadingControlON"])
@@ -182,6 +183,10 @@ def parseData():
 			controllerResp = controlClient(ctr)
 
 		elif(message["THRUSTERS_ON"]):
+			if(rospy.has_param("HIL_ON")):
+				rospy.set_param("HIL_ON",message["THRUSTERS_ON"])
+			else:
+				print("THRUSTERS not set")
 			if(message["Thruster_M1"]):
 				thr = ThrusterData()
 				thr.T1 = message["T1"]

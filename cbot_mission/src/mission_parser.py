@@ -125,7 +125,7 @@ def  checkStatus():
 		stopMissionFlag = 0
 		rospy.set_param("/HIL_ON",1)
 		return 1
-	elif(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="park"):
+	elif(rospy.get_param('Status').lower()=="park"):
 		try:
 			updateTimeout(startTime,timeout)
 		except:
@@ -133,7 +133,7 @@ def  checkStatus():
 		rospy.set_param("/HIL_ON",0)
 		stopMissionFlag = 0
 		return 2
-	elif(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="stop"):
+	elif(rospy.get_param('Status').lower()=="stop"):
 		stopMissionFlag = 1
 		rospy.set_param("/HIL_ON",0)
 		return 3
@@ -227,7 +227,6 @@ if __name__=='__main__':
 				missionsCompletedFlag = 0
 
 			while(not (rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive")):
-				rospy.set_param("/HIL_ON",0)
 				print("Checking from outer loop")
 				time.sleep(0.1)
 
