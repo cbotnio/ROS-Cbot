@@ -25,6 +25,7 @@ add_service_files(
   GuidanceInputs.srv
   ControllerSettings.srv
   ThrusterControl.srv
+  MissInputs.srv
 )
 
 

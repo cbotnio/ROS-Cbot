@@ -9,13 +9,14 @@ from __future__ import print_function
 import rospy
 import sys
 from std_msgs.msg import Bool
-from geometry_msgs.msg import Pose
+# from geometry_msgs.msg import Pose
 from cbot_ros_msgs.srv import GuidanceInputs, GuidanceInputsResponse, GuidanceInputsRequest
-import sys, math, time
+from cbot_ros_msgs.srv import MissInputs, MissInputsResponse, MissInputsRequest
+import sys, math, time, json
 import MissionCompiler
 
-MissionFile = "Mission.txt"
-Mission = MissionCompiler.readMission(MissionFile)
+MissionFile = ""
+Mission = {}#MissionCompiler.readMission(MissionFile)
 	
 currPos = (0,0,0)
 goalChanged = False
@@ -101,8 +102,6 @@ def sendMission():
 	miss.nominal_velocity = float(guidanceInputs["speed"])
 	miss.guidance_mode = float(guidanceInputs["mode"])
 	timeout = float(guidanceInputs["timeout"])
-	print(miss)
-	print("Sending mission from Function")
 	return guidance_srv(miss)
 
 def checkTimeout(startTime,timeout):
@@ -116,8 +115,6 @@ def checkTimeout(startTime,timeout):
 
 def updateTimeout(startTime, timeout):
 	difference = time.time() - startTime[-1]
-	# startTime[-1] = time.time() 
-	# To be completed
 	for i in range(len(startTime)):
 		startTime[i] += difference
 
@@ -136,7 +133,7 @@ def  checkStatus():
 		rospy.set_param("/HIL_ON",0)
 		stopMissionFlag = 0
 		return 2
-	elif(rospy.get_param('Mode').lower()!="rov" or (rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="stop")):
+	elif(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="stop"):
 		stopMissionFlag = 1
 		rospy.set_param("/HIL_ON",0)
 		return 3
@@ -160,7 +157,7 @@ def parseSingleMission(names,timeout,startTime):
 					timeout.append(float('inf'))
 				startTime.append(time.time())
 			bhvType = Mission["BHVNameTable"][name]["type"]
-			print(Mission["BHVNameTable"][name]["type"])
+			# print(Mission["BHVNameTable"][name]["type"])
 			count = checkTimeout(startTime,timeout)
 			while(count==0):
 				parseSingleMission(Mission["BHVNameTable"][name]["names"],timeout,startTime)
@@ -192,7 +189,6 @@ def parseSingleMission(names,timeout,startTime):
 						n=checkStatus()
 						if(stopMissionFlag==1):
 							break
-					
 				count = checkTimeout(startTime,timeout)
 				if(count==1):
 					break
@@ -208,24 +204,37 @@ def parseSingleMission(names,timeout,startTime):
 			timeout.pop()
 		i+=1
 
+def serviceCallback(req):
+	global Mission 
+	Mission = json.loads(req.Mission)
+	print("Mission recieved")
+	res = MissInputsResponse()
+	res.response = 1
+	return res
 
 if __name__=='__main__':
 		rospy.init_node('mission_parser')
 		guidanceStatusSub = rospy.Subscriber('/guidanceStatus',Bool, guidanceStatusCallback)
+		missionServer = rospy.Service('/missionParser', MissInputs, serviceCallback)
 		r = rospy.Rate(10)
 		print("Waiting for Server")
 		rospy.wait_for_service('/guidance_inputs')
 		print("Connected to Server")
-		
+		r = rospy.Rate(10)
 		while not rospy.is_shutdown():
-			if(missionsCompletedFlag	):
+			if(missionsCompletedFlag):
 				rospy.set_param("Status","Stop")
 				missionsCompletedFlag = 0
 
 			while(not (rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive")):
+				rospy.set_param("/HIL_ON",0)
+				print("Checking from outer loop")
 				time.sleep(0.1)
+
 			checkStatus()
-			if(stopMissionFlag==0):
+			print(stopMissionFlag==0 and bool(Mission))
+			if(stopMissionFlag==0 and bool(Mission)):
+				print("In Mission")
 				setSafety(Mission["Safety"])
 
 				MissionList = ["M"+str(y) for y in sorted([int(x[1:]) for x in Mission["Missions"].keys()])]
@@ -239,3 +248,6 @@ if __name__=='__main__':
 					startTime = []
 					print(Mi)
 					parseSingleMission(Mission["Missions"][Mi]["names"],timeout,startTime)
+
+			r.sleep()
+		# rospy.spin()

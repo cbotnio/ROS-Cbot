@@ -188,7 +188,7 @@ def sendMessage(values):
     if(key!="PortName" and key!="PortBaudrate" and key!="Browse" and key!="MissionFile"):
       message += key + ":" + msg + ","
   message += "\r\n"
-  print(message)
+  # print(message)
   ser.flushOutput()
   ser.write(message.encode())
 
@@ -289,15 +289,13 @@ def updateThrusters(values,mode=""):
 def sendMissionFile():
   global missionDictionary, ser, missionLoadStatus
   message2 = json.dumps(missionDictionary)
-  message2 = "GUI,MISSION," + str(message) + "\r\n"
-  print(message2)
+  message2 = "GUI,MISSION," + str(message2) + "\r\n"
   ser.flushOutput()
   ser.write(message2.encode())
 
 def sendExecuteMessage():
   global ser
   message3 = "GUI,EXECUTEMISSION" + "\r\n"
-  print("//////////////////////// Execute mission ////////////////")
   ser.flushOutput()
   ser.write(message3.encode())
 
@@ -457,11 +455,10 @@ while True:
       if(values["MissionFile"]!="null" and values["MissionFile"]!=""):
         values["MissionFile"] = str(values["MissionFile"])
         ext = values["MissionFile"].strip().split('.')
-        print(ext[-1])
         if(ext[-1]=="txt"):
           try:
             missionDictionary = MissionCompiler.readMission(values["MissionFile"])
-            sg.popup("Compilation Successful\n Ready to load file",title="Error")
+            sg.popup("Compilation Successful\n Ready to load file",title="Message")
             window.Element("MissionLoad").Update(disabled=False)
           except Exception as e:
             sg.popup("Compilation Failed\nReason: " + str(e),title="Error")
@@ -469,7 +466,7 @@ while True:
         elif(ext[-1]=="kml"):
           try:
             missionDictionary = kmlCompiler.read(filename=values["MissionFile"])
-            sg.popup("Compilation Successful\n Ready to load file",title="Error")
+            sg.popup("Compilation Successful\n Ready to load file",title="Message")
             window.Element("MissionLoad").Update(disabled=False)
           except Exception as e:
             sg.popup("Compilation Failed\nReason: " + str(e),title="Error")

@@ -37,7 +37,7 @@ def gpsCallback(data):
 def getData(event):
 	global lastHearbeatTime, heartbeatCount, Mission, message, events
 	line = ser.readline().decode().strip().split(',')
-	print(line)
+	# print(line)
 	if(line[0]=="GUI"):
 		if(line[1]=="MISSION"):
 			temp = ",".join(line[2:])
@@ -45,10 +45,9 @@ def getData(event):
 				Mission = json.loads(temp)
 			except:
 				print("Could not parse Mission File")
-			print(Mission)
+			# print(Mission)
 		
 		elif(line[1]=="EXECUTEMISSION"):
-			print("//////////////////////// Execute mission ////////////////")
 			parseMission()
 
 		else:
@@ -58,7 +57,7 @@ def getData(event):
 					if(data[1]!="null"):
 						message[data[0].strip()] = float(data[1].strip())
 
-			print(message)
+			# print(message)
 			parseData()
 	if(line[0] == "GUIHEARTBEAT"):
 		lastHearbeatTime = time.time()
@@ -81,7 +80,15 @@ def updateSafetyParams():
 			print(param + " not set")
 
 def parseMission():
-	print("//////////////////////// Execute mission ////////////////")
+	global Mission
+	
+	print("Connected to mission server")
+	print("//////////////////////// Executing mission ////////////////")
+	msg = MissInputsRequest()
+	msg.Mission = json.dumps(Mission)
+	# print(msg.Mission)
+	resp = missClient(msg)
+
 
 def parseData():
 	if(rospy.has_param("Controller_ON")):
@@ -98,25 +105,36 @@ def parseData():
 		print("THRUSTERS not set")
 
 	if(message["AUV_mode"]):
-		if(rospy.has_param("Mode")):
-			rospy.set_param("Mode","AUV")
+		if(rospy.has_param("/Mode")):
+			rospy.set_param("/Mode","AUV")
 		else:
 			print("MODE not set to AUV")
-		if(message["Drive"]):
-			if(rospy.has_param("Status")):
-				rospy.set_param("Status","Drive")
-			else:
-				print("Status not set to Drive")
-		elif(message["Park"]):
-			if(rospy.has_param("Status")):
-				rospy.set_param("Status","Park")
-			else:
-				print("Status not set to Park")
+
 		elif(message["MissionInactive"]):
-			if(rospy.has_param("Status")):
-				rospy.set_param("Status","Stop")
+			if(rospy.has_param("/Status")):
+				rospy.set_param("/Status","Stop")
 			else:
 				print("Status not set to Stop")
+			if(rospy.has_param("/HIL_ON")):
+				rospy.set_param("/HIL_ON",0)
+			else:
+				print("Thrusters not set to 0")
+
+		elif(message["Park"]):
+			if(rospy.has_param("/Status")):
+				rospy.set_param("/Status","Park")
+			else:
+				print("Status not set to Park")
+			if(rospy.has_param("/HIL_ON")):
+				rospy.set_param("/HIL_ON",0)
+			else:
+				print("Thrusters not set to 0")
+				
+		elif(message["Drive"]):
+			if(rospy.has_param("/Status")):
+				rospy.set_param("/Status","Drive")
+			else:
+				print("Status not set to Drive")
 
 	elif(message["Teleop_mode"]):
 		if(rospy.has_param("Mode")):
@@ -206,6 +224,8 @@ def Timer(event):
 
 
 if __name__ == "__main__":
+	rospy.wait_for_service("/missionParser")
+	missClient = rospy.ServiceProxy("/missionParser",MissInputs)
 	rospy.Subscriber("/AHRS",AHRS,ahrsCallback)
 	rospy.Subscriber("/GPS",GPS,gpsCallback)
 	rospy.Timer(rospy.Duration(0.1), getData)

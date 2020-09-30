@@ -1,26 +1,26 @@
 {
     "GuidanceNameTable": {
-        "Home": {
-            "data": {
-                "timeout": "20",
-                "speed": "0.5",
-                "slipRadius": "0",
-                "captureRadius": "0",
-                "heading": "0",
-                "position": "(15.4507,73.8041)"
-            },
-            "type": "wpt"
-        },
         "Home2": {
+            "type": "wpt",
             "data": {
-                "timeout": "20",
-                "speed": "0.5",
-                "slipRadius": "0",
                 "captureRadius": "0",
+                "speed": "0.5",
+                "timeout": "20",
                 "heading": "0",
-                "position": "(15.4508,73.8041)"
-            },
-            "type": "wpt"
+                "position": "(15.4508,73.8041)",
+                "slipRadius": "0"
+            }
+        },
+        "Home": {
+            "type": "wpt",
+            "data": {
+                "captureRadius": "0",
+                "speed": "0.5",
+                "timeout": "20",
+                "heading": "0",
+                "position": "(15.4507,73.8041)",
+                "slipRadius": "0"
+            }
         }
     },
     "Missions": {
@@ -35,9 +35,9 @@
             ]
         }
     },
-    "BHVNameTable": {},
     "Safety": {
         "maxDepth": "10",
         "maxPitch": "15"
-    }
+    },
+    "BHVNameTable": {}
 }
