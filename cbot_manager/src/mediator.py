@@ -1,11 +1,11 @@
 import rospy
-import serial, time
+import serial, time, json
 from cbot_ros_msgs.msg import *
 from cbot_ros_msgs.srv import *
 
 rospy.init_node("mediator")
 
-ser = serial.Serial("/home/mohit/nio/src/GUI-read",timeout=0.01,baudrate=9600, rtscts=True, dsrdtr=True)
+ser = serial.Serial("/tmp/GUI-read",timeout=0.01,baudrate=9600, rtscts=True, dsrdtr=True)
 controlClient = rospy.ServiceProxy("/controller_inputs", ControllerInputs)
 thrusterClient = rospy.ServiceProxy("/thruster_control", ThrusterControl)
 thrPub = rospy.Publisher("/Thrusters",ThrusterData,queue_size=10)
@@ -18,6 +18,8 @@ sendData = {"Battery": 100, "Latitude": 15.4507, "Longitude": 73.8041, "Speed": 
 
 heartbeatCount = 5
 lastHearbeatTime = time.time()
+
+Mission = {}
 
 def ahrsCallback(data):
 	global sendData
@@ -33,16 +35,31 @@ def gpsCallback(data):
 	sendData["Speed"] = round(data.vel,2)
 
 def getData(event):
-	global lastHearbeatTime, heartbeatCount
+	global lastHearbeatTime, heartbeatCount, Mission, message, events
 	line = ser.readline().decode().strip().split(',')
+	print(line)
 	if(line[0]=="GUI"):
-		for data in line:
-			data = data.strip().split(":")
-			if(len(data)==2):
-				if(data[1]!="null"):
-					message[data[0].strip()] = float(data[1].strip())
-		print(message)
-		parseData()
+		if(line[1]=="MISSION"):
+			temp = ",".join(line[2:])
+			try:
+				Mission = json.loads(temp)
+			except:
+				print("Could not parse Mission File")
+			print(Mission)
+		
+		elif(line[1]=="EXECUTEMISSION"):
+			print("//////////////////////// Execute mission ////////////////")
+			parseMission()
+
+		else:
+			for data in line[1:]:
+				data = data.strip().split(":")
+				if(len(data)==2):
+					if(data[1]!="null"):
+						message[data[0].strip()] = float(data[1].strip())
+
+			print(message)
+			parseData()
 	if(line[0] == "GUIHEARTBEAT"):
 		lastHearbeatTime = time.time()
 		heartbeatCount = 5
@@ -62,6 +79,9 @@ def updateSafetyParams():
 			safetyParams[param] = rospy.get_param(param)
 		else:
 			print(param + " not set")
+
+def parseMission():
+	print("//////////////////////// Execute mission ////////////////")
 
 def parseData():
 	if(rospy.has_param("Controller_ON")):
@@ -97,6 +117,7 @@ def parseData():
 				rospy.set_param("Status","Stop")
 			else:
 				print("Status not set to Stop")
+
 	elif(message["Teleop_mode"]):
 		if(rospy.has_param("Mode")):
 			rospy.set_param("Mode","ROV")
@@ -107,7 +128,6 @@ def parseData():
 		else:
 			print("Status not set to Stop")
 
-	# elif(message["Compile"])
 		if(message["GUIDANCE_ON"]):
 			pass
 		elif(message["CONTROLLER_ON"]):
@@ -179,7 +199,6 @@ def Timer(event):
 		print("GUI Heartbeat Timeout\n Setting Thrusters OFF")
 		rospy.set_param("/HIL_ON",0)
 		while(heartbeatCount==0):
-			# getData()
 			timeElapsed = time.time() - lastHearbeatTime
 			time.sleep(0.1)
 		print("GUI Heartbeat Recieved\n You can set Thrusters ON manually")
@@ -187,15 +206,9 @@ def Timer(event):
 
 
 if __name__ == "__main__":
-	# while not rospy.is_shutdown():
 	rospy.Subscriber("/AHRS",AHRS,ahrsCallback)
 	rospy.Subscriber("/GPS",GPS,gpsCallback)
 	rospy.Timer(rospy.Duration(0.1), getData)
 	rospy.Timer(rospy.Duration(0.1), sendStatusUpdate)
 	rospy.Timer(rospy.Duration(0.1), Timer)
 	rospy.spin()
-
-		# r.sleep()
-			# print(message)
-		# except:
-		# 	print("Could not parse GUI data")

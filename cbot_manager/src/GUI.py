@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import PySimpleGUI27 as sg
-import os.path
-from PIL import Image
-import serial, time, re
+import serial, time, re, json
 import MissionCompiler, kmlCompiler
 
 serialPortName = "/tmp/GUI-write"
@@ -30,6 +28,7 @@ stepsYaw = [-360,360,1]
 startTime = time.time()
 
 invalidMessageFlag = 0
+missionLoadStatus = 0
 
 missionDictionary = {}
 
@@ -101,7 +100,9 @@ buttons = [[sg.Frame(layout=[
                             title="Controller Config",title_color="red")],
             [sg.Frame(layout=[
                 [sg.Text('File:', size=(8, 1)), sg.Input(key="MissionFile"), sg.FileBrowse()],
-                [sg.B('Compile', key="MissionCompile"),sg.B('Load', key="MissionLoad",disabled=True)]],
+                [sg.B('Compile', key="MissionCompile"),
+                sg.B('Load', key="MissionLoad",disabled=True),
+                sg.B('Execute', key="MissionExecute",disabled=True)]],
                             title="Mission File", title_color="red")],
             [sg.Submit('Update')]]
 
@@ -125,10 +126,6 @@ col1 =    [[sg.Frame(layout=[
                  sg.In(str(safetyParams["MaxVelocity"]),size=(10,1), disabled=False, background_color='white', text_color='black',key="MaxVelocity")]],
                             title="Safety Parameters", title_color="red")]]
 
-MFile =     [[sg.Frame(layout=[
-                [sg.Text('File:', size=(8, 1)), sg.Input(key="MissionFile"), sg.FileBrowse()],
-                [sg.B('Compile', key="MissionCompile"),sg.B('Load', key="MissionLoad",disabled=True)]],
-                            title="Mission File", title_color="red")]]
 
 layout = [
     [sg.Column(col1),
@@ -165,13 +162,13 @@ def updatePort(portname,baudrate):
 	  		ser.port = serialPortName
 	  		if(not ser.isOpen()):
 	  			ser.open()
-	  		sg.popup("Error, cannot open new port")
+	  		sg.popup("Error, cannot open new port",title="Error")
 	if(baudrate!=serialBaudrate):
   		try:
   			ser.baudrate = baudrate
   			serialBaudrate = baudrate
   		except:
-  			sg.popup("Error, could not set the new baudrate")
+  			sg.popup("Error, could not set the new baudrate",title="Error")
 
 	window.Element("PortName").Update(serialPortName)
 	window.Element("PortBaudrate").Update(serialBaudrate)
@@ -188,7 +185,8 @@ def sendMessage(values):
       msg = "null"
     else:
       msg = str(values[key])
-    message += key + ":" + msg + ","
+    if(key!="PortName" and key!="PortBaudrate" and key!="Browse" and key!="MissionFile"):
+      message += key + ":" + msg + ","
   message += "\r\n"
   print(message)
   ser.flushOutput()
@@ -204,7 +202,7 @@ def updateHeartbeat(values):
     HeartbeatTimeout = float(values["HeartTimeout"])
   else:
     invalidMessageFlag = 1
-    sg.popup("Invalid Heartbeat Timeout")
+    sg.popup("Invalid Heartbeat Timeout",title="Error")
   values["HeartTimeout"] = HeartbeatTimeout
   window.Element("HeartTimeout").Update(value=HeartbeatTimeout)
   return values
@@ -232,7 +230,7 @@ def updateSafetyParams(values):
     invFlag=1
   if(invFlag):
     invalidMessageFlag = 1
-    sg.popup("Invalid Safety Parameter")
+    sg.popup("Invalid Safety Parameter",title="Error")
   values["MaxDepth"] = safetyParams["MaxDepth"]
   values["MaxVelocity"] = safetyParams["MaxVelocity"]
   values["MaxPitch"] = safetyParams["MaxPitch"]
@@ -256,7 +254,7 @@ def checkControlValues(values):
     values["PCtrl"] = float(values["PCtrl"]) if(checkValidNumber(values["PCtrl"])) else 0.0
     values["SCtrl"] = float(values["SCtrl"]) if(checkValidNumber(values["SCtrl"])) else 0.0
     invalidMessageFlag = 1
-    sg.popup("Invalid Control Input")
+    sg.popup("Invalid Control Input",title="Error")
 
   window.Element('HCtrl').Update(value=values["HCtrl"])
   window.Element('DCtrl').Update(value=values["DCtrl"])
@@ -288,14 +286,30 @@ def updateThrusters(values,mode=""):
   window.Element('T4').Update(value=values["T4"])
   return values
 
+def sendMissionFile():
+  global missionDictionary, ser, missionLoadStatus
+  message2 = json.dumps(missionDictionary)
+  message2 = "GUI,MISSION," + str(message) + "\r\n"
+  print(message2)
+  ser.flushOutput()
+  ser.write(message2.encode())
+
+def sendExecuteMessage():
+  global ser
+  message3 = "GUI,EXECUTEMISSION" + "\r\n"
+  print("//////////////////////// Execute mission ////////////////")
+  ser.flushOutput()
+  ser.write(message3.encode())
+
 while True:
     event, values = window.read(timeout = 0.01)
     if(event == "Exit" or event == None):
         break
 
-    # Send heartbeat
+    #Send heartbeat
+    message = "GUIHEARTBEAT\r\n"
     if(Timer(startTime)):
-       ser.write(b"GUIHEARTBEAT\n")
+       ser.write(message.encode())
        startTime = time.time()
 
     updateStatus()
@@ -303,6 +317,7 @@ while True:
     
     if(values["Teleop_mode"]==1 and event=="Teleop_mode"):
       window.Element("AUV_mode").Update(False)
+      window.Element("MissionExecute").Update(disabled=True)
       window.Element("THRUSTERS_ON").Update(value=False,disabled=False)
       window.Element("CONTROLLER_ON").Update(value=False,disabled=False)
       window.Element("GUIDANCE_ON").Update(value=False,disabled=False)
@@ -311,6 +326,7 @@ while True:
       window.Element("MissionInactive").Update(value=True,disabled=True)
     elif(values["AUV_mode"]==1 and event=="AUV_mode"):
       window.Element("Teleop_mode").Update(False)
+      window.Element("MissionExecute").Update(disabled=(bool(missionLoadStatus==0)))
       window.Element("THRUSTERS_ON").Update(value=True,disabled=True)
       window.Element("CONTROLLER_ON").Update(value=True,disabled=True)
       window.Element("GUIDANCE_ON").Update(value=True,disabled=True)
@@ -318,6 +334,7 @@ while True:
       window.Element("Park").Update(value=False,disabled=False)
       window.Element("MissionInactive").Update(value=True,disabled=False)
     elif(values["Teleop_mode"]==0 and values["AUV_mode"]==0):
+      window.Element("MissionExecute").Update(disabled=True)
       window.Element("THRUSTERS_ON").Update(value=False,disabled=True)
       window.Element("CONTROLLER_ON").Update(value=False,disabled=True)
       window.Element("GUIDANCE_ON").Update(value=False,disabled=True)
@@ -416,7 +433,6 @@ while True:
       window.Element('DCtrl').Update(disabled=True)
       window.Element('SpeedControlON').Update(False,disabled=True)
       window.Element('SCtrl').Update(disabled=True)
-
     
     if(event=="Update"):
       invalidMessageFlag = 0
@@ -434,19 +450,41 @@ while True:
       if(not invalidMessageFlag):
         sendMessage(values)
       else:
-        sg.popup("Message not sent")
+        sg.popup("Message not sent",title="Error")
 
     elif(event=="MissionCompile"):
-      if(values["MissionFile"]!="null"):
-        try:
-          missionDictionary = MissionCompiler.readMission(values["MissionFile"])
-          sg.popup("Compilation Successful")
-          window.Element("MissionLoad").Update(disabled=False)
-        except Exception as e:
-          sg.popup("Compilation Failed\nReason: ", missionDictionary)
+      missionLoadStatus = 0
+      if(values["MissionFile"]!="null" and values["MissionFile"]!=""):
+        values["MissionFile"] = str(values["MissionFile"])
+        ext = values["MissionFile"].strip().split('.')
+        print(ext[-1])
+        if(ext[-1]=="txt"):
+          try:
+            missionDictionary = MissionCompiler.readMission(values["MissionFile"])
+            sg.popup("Compilation Successful\n Ready to load file",title="Error")
+            window.Element("MissionLoad").Update(disabled=False)
+          except Exception as e:
+            sg.popup("Compilation Failed\nReason: " + str(e),title="Error")
+            window.Element("MissionLoad").Update(disabled=True)
+        elif(ext[-1]=="kml"):
+          try:
+            missionDictionary = kmlCompiler.read(filename=values["MissionFile"])
+            sg.popup("Compilation Successful\n Ready to load file",title="Error")
+            window.Element("MissionLoad").Update(disabled=False)
+          except Exception as e:
+            sg.popup("Compilation Failed\nReason: " + str(e),title="Error")
+            window.Element("MissionLoad").Update(disabled=True)
+        else:
+          sg.popup("Invalid File Extension ",title="Error")
+          window.Element("MissionLoad").Update(disabled=True)
 
     elif(event=="MissionLoad"):
-      pass
+      sendMissionFile()
+      missionLoadStatus = 1
+    elif(event=="MissionExecute"):
+      sendMessage(values)
+      time.sleep(1)
+      sendExecuteMessage()
 
 window.close()
 ser.close()

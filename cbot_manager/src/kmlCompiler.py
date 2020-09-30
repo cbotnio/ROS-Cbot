@@ -37,16 +37,13 @@ def read(filename="test.kml"):
 					l = t[i:i+3]
 					coords.append(l)
 					i +=3
-				print("Lines")
 			except:
 				name.append(e.name.text)
 				missionType = "wpt"
 				coords = e.Point.coordinates.text.strip(" \n\t").split(',')
-				print("Point")
 				
 			# Add mission to dictionary
 			if(len(coords)!=0):
-				print(name)
 				Mission["Missions"]["M"+str(count)] = {"names": name}
 				if (missionType=="wpt"):
 					addWPT(coords,name,missionType)
