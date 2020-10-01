@@ -5,8 +5,11 @@ import MissionCompiler, kmlCompiler
 
 serialPortName = "/tmp/GUI-write"
 serialBaudrate = 9600
-ser = serial.Serial(port=serialPortName,baudrate=serialBaudrate,writeTimeout=0.1,timeout=0.01,rtscts=True,dsrdtr=True)
 
+# ser = serial.Serial(port=serialPortName,baudrate=serialBaudrate,writeTimeout=0.1,timeout=0.01,rtscts=True,dsrdtr=True)
+ser = serial.Serial()
+
+serialConnected = 0
 statusTextFont = ("Helvetica",12)
 statusDataSize = (10,1)
 
@@ -31,6 +34,12 @@ invalidMessageFlag = 0
 missionLoadStatus = 0
 
 missionDictionary = {}
+
+MEDlastHeartbeat = time.time()
+MEDheartbeatCount = 5
+MEDheartbeatTimeout = 0.5
+MEDconnectionStatus = 1
+firstConnectionFlag = 0
 
 def getRange(start,end,stepSize=0.1,precision=2):
   return list([round(i*stepSize,precision) for i in range(int(float(start)/stepSize),int(float(end)/stepSize)+1)])
@@ -107,7 +116,10 @@ buttons = [[sg.Frame(layout=[
             [sg.Submit('Update')]]
 
 
-col1 =    [[sg.Frame(layout=[
+col1 =    [ [sg.Frame(layout=[
+                [sg.T('DISCONNECTED',justification="center", background_color="red", key='VehicleStatus')]],
+                            title="Vehicle Status", title_color="red")],
+            [sg.Frame(layout=[
                 [sg.T("Timeout: ", pad=((1,0),0)), 
                  sg.In(str(HeartbeatTimeout),size=(10,1), disabled=False, background_color='white', text_color='black',key="HeartTimeout")]],
                             title="Heartbeat Timeout", title_color="red")],
@@ -138,9 +150,11 @@ layout = [
 window = sg.Window("CBOT Control", layout)
 
 def updateStatus():
-  global window
+  global window, MEDheartbeatCount, MEDlastHeartbeat, firstConnectionFlag
   ser.flushInput()
-  readData = ser.readline().decode().strip().split(',')
+  readData = ser.readline().decode()
+  print(readData)
+  readData = readData.strip().split(',')
   if(readData[0]=="MED"):
     for param in readData[1:]:
       param = param.split(':')
@@ -149,6 +163,9 @@ def updateStatus():
           window.Element(param[0].strip()).Update(param[1])
       except:
         pass
+    firstConnectionFlag = 1
+    MEDlastHeartbeat = time.time()
+    MEDheartbeatCount = 5
 
 def updatePort(portname,baudrate):
 	global serialBaudrate,serialPortName,ser,window
@@ -188,7 +205,6 @@ def sendMessage(values):
     if(key!="PortName" and key!="PortBaudrate" and key!="Browse" and key!="MissionFile"):
       message += key + ":" + msg + ","
   message += "\r\n"
-  # print(message)
   ser.flushOutput()
   ser.write(message.encode())
 
@@ -239,12 +255,6 @@ def updateSafetyParams(values):
   window.Element("MaxPitch").Update(value=values["MaxPitch"])
   return values
 
-def Timer(starttime):
-  timeElapsed = time.time() - starttime
-  if(timeElapsed>float(heartbeatRate)):
-    return True
-  else:
-    return False
 
 def checkControlValues(values):
   global window, invalidMessageFlag
@@ -286,6 +296,26 @@ def updateThrusters(values,mode=""):
   window.Element('T4').Update(value=values["T4"])
   return values
 
+def Timer(starttime):
+  timeElapsed = time.time() - starttime
+  if(timeElapsed>float(heartbeatRate)):
+    return True
+  else:
+    return False
+
+def Timer2():
+  global MEDheartbeatCount, MEDlastHeartbeat, MEDheartbeatTimeout,window
+  timeElapsed = time.time() - MEDlastHeartbeat
+  if(timeElapsed>MEDheartbeatTimeout):
+    MEDheartbeatCount-=1
+    MEDlastHeartbeat = time.time()
+  if(MEDheartbeatCount>0):
+    window.Element("VehicleStatus").Update("CONNECTED",background_color="green")
+  else:
+    window.Element("VehicleStatus").Update("DISCONNECTED",background_color="red")
+  if(MEDheartbeatCount<-1):
+    MEDheartbeatCount = -1
+
 def sendMissionFile():
   global missionDictionary, ser, missionLoadStatus
   message2 = json.dumps(missionDictionary)
@@ -304,14 +334,29 @@ while True:
     if(event == "Exit" or event == None):
         break
 
-    #Send heartbeat
+    while(not serialConnected):
+      event, values = window.read(timeout = 0.01)
+      if(event=="Update"):
+        try:
+          ser = serial.Serial(port=values["PortName"],baudrate=values["PortBaudrate"],writeTimeout=0.1,timeout=0.01,rtscts=True,dsrdtr=True)
+          print("CONNECTED to serial")
+          serialConnected = 1
+        except:
+          sg.popup("No serial Connection",title="Error")
+
     message = "GUIHEARTBEAT\r\n"
     if(Timer(startTime)):
        ser.write(message.encode())
        startTime = time.time()
 
-    updateStatus()
+    if(firstConnectionFlag):
+      Timer2()
+    
+    if(MEDheartbeatCount==0):
+      MEDconnectionStatus = 0
+      sg.popup("Connection broke with the Vehicle",title="Error")
 
+    updateStatus()
     
     if(values["Teleop_mode"]==1 and event=="Teleop_mode"):
       window.Element("AUV_mode").Update(False)

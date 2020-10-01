@@ -44,7 +44,6 @@ guidanceInputsDefault = {"X1": 0.0, "Y1": 0.0, "Z1": 0.0,
 						 "mode": 0,
 						 "timeout": float("inf")}
 
-guidance_srv = rospy.ServiceProxy('/guidance_inputs', GuidanceInputs)
 
 params = {"wpt": ["position", "depth", "speed", "heading", "captureRadius", "slipRadius", "timeout"],
 		  "lfw": ["position1", "position2", "depth", "speed", "heading", "captureRadius", "timeout"],
@@ -61,6 +60,8 @@ modeTable = {"wpt": 0, "lfw": 1, "arc": 2, "stkp": 3}
 stopMissionFlag = 0
 
 missionsCompletedFlag = 0
+
+guidance_srv = rospy.ServiceProxy('/guidance_inputs', GuidanceInputs)
 
 def setSafety(safetyParameters):
 	for safetyParam in safetyParameters.keys():
@@ -123,19 +124,19 @@ def  checkStatus():
 	# Add all check conditions like pause and perform 
 	if(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive"):
 		stopMissionFlag = 0
-		rospy.set_param("/HIL_ON",1)
+		# rospy.set_param("/HIL_ON",1)
 		return 1
 	elif(rospy.get_param('Status').lower()=="park"):
 		try:
 			updateTimeout(startTime,timeout)
 		except:
 			pass
-		rospy.set_param("/HIL_ON",0)
+		# rospy.set_param("/HIL_ON",0)
 		stopMissionFlag = 0
 		return 2
 	elif(rospy.get_param('Status').lower()=="stop"):
 		stopMissionFlag = 1
-		rospy.set_param("/HIL_ON",0)
+		# rospy.set_param("/HIL_ON",0)
 		return 3
 
 
@@ -189,6 +190,7 @@ def parseSingleMission(names,timeout,startTime):
 						n=checkStatus()
 						if(stopMissionFlag==1):
 							break
+					response = sendMission()
 				count = checkTimeout(startTime,timeout)
 				if(count==1):
 					break
@@ -220,7 +222,6 @@ if __name__=='__main__':
 		print("Waiting for Server")
 		rospy.wait_for_service('/guidance_inputs')
 		print("Connected to Server")
-		r = rospy.Rate(10)
 		while not rospy.is_shutdown():
 			if(missionsCompletedFlag):
 				rospy.set_param("Status","Stop")
