@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import rospy
 import serial, time, json
 from cbot_ros_msgs.msg import *

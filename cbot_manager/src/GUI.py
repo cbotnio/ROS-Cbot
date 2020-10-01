@@ -153,7 +153,6 @@ def updateStatus():
   global window, MEDheartbeatCount, MEDlastHeartbeat, firstConnectionFlag
   ser.flushInput()
   readData = ser.readline().decode()
-  print(readData)
   readData = readData.strip().split(',')
   if(readData[0]=="MED"):
     for param in readData[1:]:
