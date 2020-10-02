@@ -128,7 +128,7 @@ int IMU_AHRS::calCRC ( unsigned char buf[] ) {
 			crc ^= (crc & 0x00ff) << 5;
 		}
 		sprintf( cs, "%04X, %02X%02X", crc, buf[n+1]&0xFF, buf[n+2]&0xFF );
-		ROS_INFO("CS: %s", cs);
+		// ROS_INFO("CS: %s", cs);
 		fflush(NULL);
 		if ( memcmp ( cs, cs+6, 4 ) == 0 )	return 1;
 	}

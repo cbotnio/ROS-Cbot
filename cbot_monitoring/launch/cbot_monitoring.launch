@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-    <node name="safety_monitor_node" pkg="cbot_monitoring" type="safety_monitor_node" output="screen">
+    <node name="safety_monitor_node" pkg="cbot_monitoring" type="safety_monitor_node" respawn="true" output="screen">
     </node>
 </launch>

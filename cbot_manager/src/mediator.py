@@ -6,7 +6,7 @@ from cbot_ros_msgs.srv import *
 
 rospy.init_node("mediator")
 
-ser = serial.Serial("/tmp/GUI-read",timeout=0.01,baudrate=9600, rtscts=True, dsrdtr=True)
+ser = serial.Serial("/tmp/GUI-read",timeout=0.1,baudrate=9600, rtscts=True, dsrdtr=True)
 controlClient = rospy.ServiceProxy("/controller_inputs", ControllerInputs)
 thrusterClient = rospy.ServiceProxy("/thruster_control", ThrusterControl)
 thrPub = rospy.Publisher("/Thrusters",ThrusterData,queue_size=10)
@@ -56,6 +56,7 @@ def getData(event):
 				if(len(data)==2):
 					if(data[1]!="null"):
 						message[data[0].strip()] = float(data[1].strip())
+			print(message)
 			parseData()
 	
 	if(line[0] == "GUIHEARTBEAT"):
@@ -133,6 +134,7 @@ def parseData():
 
 			ctr = ControllerInputsRequest()
 			if(message["HeadingControlON"]):
+				print(float(message['HCtrl']))
 				ctr.desired_heading = float(message['HCtrl'])
 			if(message["PitchControlON"]):
 				ctr.desired_pitch = float(message['PCtrl'])

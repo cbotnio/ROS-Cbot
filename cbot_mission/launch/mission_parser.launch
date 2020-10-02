@@ -1,4 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-	<node name="mission_parser" pkg="cbot_mission" type="mission_parser.py" output="screen"></node>
-</launch>

@@ -74,6 +74,7 @@ bool thrusterControlCallback(cbot_ros_msgs::ThrusterControl::Request &req, cbot_
     return true;    
 }
 
+
 int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "thruster_node");

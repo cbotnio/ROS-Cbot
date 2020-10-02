@@ -21,4 +21,3 @@ HIL_ON: 1
 Mode: "AUV"
 Status: "Drive"
 
-MissionStatus : "STOPPED" #RUNNING,PAUSED,STOPPED

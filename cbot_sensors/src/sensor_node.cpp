@@ -16,7 +16,7 @@ int GPS_OK, AHRS_OK;
 
 int main(int argc, char *argv[])
 {
-    ros::init(argc, argv, "SENSOR_NODE");
+    ros::init(argc, argv, "sensors_node");
     ros::Time::init();
     ros::NodeHandle n;
     
@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
     last_read_gps = last_read_ahrs = ros::Time::now().toSec();
 
     sensor_status_pub = n.advertise<cbot_ros_msgs::SensorsStatus>("SENSOR", 5);
+    cbot_ros_msgs::SensorsStatus sensor_status_msg;
 
     if(gps.fd > 0)
     {
@@ -64,14 +65,13 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    while(1)
+    
+    while(ros::ok())
     {
         Timeout.tv_sec = 1;
         Timeout.tv_usec = 0;
 
-        cbot_ros_msgs::SensorsStatus sensor_status_msg;
 
-        //  ahrs.writeAhrs();
         FD_ZERO (&readfs);
         FD_SET(gps.fd, &readfs); 
         FD_SET(ahrs.fd, &readfs);

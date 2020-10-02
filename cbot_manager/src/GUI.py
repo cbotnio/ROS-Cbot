@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-import PySimpleGUI27 as sg
-import serial, time, re, json
+import PySimpleGUI as sg
+import serial, time, re, json, threading, datetime
 import MissionCompiler, kmlCompiler
 
 serialPortName = "/tmp/GUI-write"
@@ -8,10 +8,14 @@ serialBaudrate = 9600
 
 # ser = serial.Serial(port=serialPortName,baudrate=serialBaudrate,writeTimeout=0.1,timeout=0.01,rtscts=True,dsrdtr=True)
 ser = serial.Serial()
+boatGPSser = serial.Serial()
 
 serialConnected = 0
-statusTextFont = ("Helvetica",12)
+statusTextFont = ("Helvetica",15)
 statusDataSize = (10,1)
+timerFont = ("Helvetica",20)
+titleColor = "red"
+
 
 sg.SetOptions(element_padding=(1,1))
 
@@ -29,6 +33,8 @@ stepsRoll = [-90,90,1]
 stepsYaw = [-360,360,1]
 
 startTime = time.time()
+connectedTimerFlag = 0
+connectedCounter = 0
 
 invalidMessageFlag = 0
 missionLoadStatus = 0
@@ -37,14 +43,22 @@ missionDictionary = {}
 
 MEDlastHeartbeat = time.time()
 MEDheartbeatCount = 5
-MEDheartbeatTimeout = 0.5
+MEDheartbeatTimeout = 2
 MEDconnectionStatus = 1
 firstConnectionFlag = 0
+
+sg.theme('DefaultNoMoreNagging')
 
 def getRange(start,end,stepSize=0.1,precision=2):
   return list([round(i*stepSize,precision) for i in range(int(float(start)/stepSize),int(float(end)/stepSize)+1)])
 
 status = [[sg.Frame(layout=[
+          [sg.Text("%s:%s:%s"%((datetime.datetime.now()).hour,(datetime.datetime.now()).minute,(datetime.datetime.now()).second),size=statusDataSize, font=timerFont, justification='center', key='-SYSTEMTIME-')]],
+          title="Time",title_color=titleColor,font=statusTextFont)],
+          [sg.Frame(layout=[
+          [sg.Text(text="00:00:00",size=statusDataSize, font=timerFont, justification='center', key='-TIMER-')]],
+          title="Connection Time",title_color=titleColor,font=statusTextFont)],
+          [sg.Frame(layout=[
           [sg.Text('Battery: ',font=statusTextFont, justification="left"),
            sg.Text("0%",size=statusDataSize,font=statusTextFont,justification="left", key="Battery",enable_events=True)],
           
@@ -53,6 +67,9 @@ status = [[sg.Frame(layout=[
           
           [sg.Text('Longitude: ',font=statusTextFont, justification="left"),
            sg.Text("0",size=statusDataSize,font=statusTextFont,justification="left",key="Longitude",enable_events=True)],
+
+          [sg.Text('Depth: ',font=statusTextFont, justification="left"),
+           sg.Text("0",size=statusDataSize,font=statusTextFont,justification="left",key="Depth",enable_events=True)],           
 
           [sg.Text('Speed: ',font=statusTextFont, justification="left"),
            sg.Text("0",size=statusDataSize,font=statusTextFont,justification="left",key="Speed",enable_events=True)],
@@ -69,74 +86,82 @@ status = [[sg.Frame(layout=[
           [sg.Text('Yaw: ',font=statusTextFont, justification="left"),
            sg.Text("0",size=statusDataSize,font=statusTextFont,justification="left",key="Yaw",enable_events=True)],],
 
-          title="Status",title_color="red")]]
+          title="Status",title_color=titleColor,font=statusTextFont)]]
 
 buttons = [[sg.Frame(layout=[
-                [sg.Checkbox('AUV', default=False, key='AUV_mode',enable_events=True),
-                 sg.Checkbox('ROV', default=True, key='Teleop_mode',enable_events=True)]],
-                             title='Select Mode',title_color='red'),
+                [sg.Checkbox('AUV', default=False, font=statusTextFont, key='AUV_mode',enable_events=True),
+                 sg.Checkbox('ROV', default=True, font=statusTextFont, key='Teleop_mode',enable_events=True)]],
+                             title='Select Mode',title_color=titleColor,font=statusTextFont),
             sg.Frame(layout=[
-                [sg.Checkbox('Drive', default=False, disabled=True, key='Drive',enable_events=True),
-                 sg.Checkbox('Park', default=False, disabled=True, key='Park',enable_events=True),
-                 sg.Checkbox('Stop', default=True, disabled=True, key='MissionInactive',enable_events=True)]],
-                             title='AUV Mission Status',title_color='red')],
+                [sg.Checkbox('Drive', default=False, disabled=True, font=statusTextFont, key='Drive',enable_events=True),
+                 sg.Checkbox('Park', default=False, disabled=True, font=statusTextFont, key='Park',enable_events=True),
+                 sg.Checkbox('Stop', default=True, disabled=True, font=statusTextFont, key='MissionInactive',enable_events=True)]],
+                             title='AUV Mission Status',title_color=titleColor,font=statusTextFont)],
             [sg.Frame(layout=[
-                [sg.Checkbox('Guidance', default=False, key='GUIDANCE_ON'),
-                 sg.Checkbox('Controller', default=False, key='CONTROLLER_ON',enable_events=True),
-                 sg.Checkbox('Thrusters', default=True, key='THRUSTERS_ON',enable_events=True)]],
-                             title='Settings',title_color='red')],
+                [sg.Checkbox('Guidance', default=False, font=statusTextFont, key='GUIDANCE_ON'),
+                 sg.Checkbox('Controller', default=False, font=statusTextFont, key='CONTROLLER_ON',enable_events=True),
+                 sg.Checkbox('Thrusters', default=True, font=statusTextFont, key='THRUSTERS_ON',enable_events=True)]],
+                             title='Settings',title_color=titleColor,font=statusTextFont)],
             [sg.Frame(layout=[
-                [sg.Checkbox('Individual', default=True, key='Thruster_M1',enable_events=True),
-                 sg.Checkbox('CMDM', default=False, key='Thruster_M2',enable_events=True)],
-                [sg.T('T1:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T1",enable_events=True),
-                 sg.T('T2:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T2",enable_events=True),
-                 sg.T('T3:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T3",enable_events=True),
-                 sg.T('T4:', pad=((1,0),0)), sg.In('0.0',size=(10,1), background_color='white', text_color='black',key="T4",enable_events=True)],
-                [sg.T('Common Mode Forward:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="CMFCtrl",enable_events=True),
-                 sg.T('Diff Mode Forward:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="DMFCtrl",enable_events=True)],
-                [sg.T('Common Mode Vertical:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="CMVCtrl",enable_events=True),
-                 sg.T('Diff Mode Vertical:', pad=((1,0),0)), sg.In('0.0',size=(10,1), disabled=True, background_color='white', text_color='black',key="DMVCtrl",enable_events=True)]],
-                            title="Thruster Inputs",title_color="red")],
+                [sg.Checkbox('Individual', default=True, font=statusTextFont, key='Thruster_M1',enable_events=True),
+                 sg.Checkbox('CMDM', default=False, font=statusTextFont, key='Thruster_M2',enable_events=True)],
+                [sg.T('T1:',font=statusTextFont), sg.In('0.0',size=statusDataSize,font=statusTextFont, background_color='white', text_color='black',key="T1",enable_events=True),
+                 sg.T('T2:',font=statusTextFont), sg.In('0.0',size=statusDataSize,font=statusTextFont, background_color='white', text_color='black',key="T2",enable_events=True),
+                 sg.T('T3:',font=statusTextFont), sg.In('0.0',size=statusDataSize,font=statusTextFont, background_color='white', text_color='black',key="T3",enable_events=True),
+                 sg.T('T4:',font=statusTextFont), sg.In('0.0',size=statusDataSize,font=statusTextFont, background_color='white', text_color='black',key="T4",enable_events=True)],
+                [sg.T('Common Mode Forward:',font=statusTextFont), sg.In('0.0',size=statusDataSize,font=statusTextFont, disabled=True, background_color='white', text_color='black',key="CMFCtrl",enable_events=True),
+                 sg.T('Diff Mode Forward:',font=statusTextFont), sg.In('0.0',size=statusDataSize,font=statusTextFont, disabled=True, background_color='white', text_color='black',key="DMFCtrl",enable_events=True)],
+                [sg.T('Common Mode Vertical:',font=statusTextFont), sg.In('0.0',size=statusDataSize,font=statusTextFont, disabled=True, background_color='white', text_color='black',key="CMVCtrl",enable_events=True),
+                 sg.T('Diff Mode Vertical:',font=statusTextFont), sg.In('0.0',size=statusDataSize,font=statusTextFont, disabled=True, background_color='white', text_color='black',key="DMVCtrl",enable_events=True)]],
+                            title="Thruster Inputs",title_color=titleColor,font=statusTextFont)],
             [sg.Frame(layout=[
-                [sg.Checkbox('Heading Control\t',disabled=True, default=False, key='HeadingControlON',enable_events=True),
-                 sg.T('Heading Angle:', pad=((1,0),0)), sg.Spin(values=getRange(stepsYaw[0],stepsYaw[1],stepsYaw[2]),initial_value=0.0,size=(10,1),disabled=True, background_color='white', text_color='black',key="HCtrl")],
-                [sg.Checkbox('Pitch Control\t',disabled=True, default=False, key='PitchControlON',enable_events=True),
-                 sg.T('Pitch Angle:', pad=((1,0),0)), sg.Spin(values=getRange(stepsPitch[0],stepsPitch[1],stepsPitch[2]),initial_value=0.0,size=(10,1), disabled=True, background_color='white', text_color='black',key="PCtrl")],
-                [sg.Checkbox('Depth Control\t',disabled=True, default=False, key='DepthControlON',enable_events=True),
-                 sg.T('Depth:', pad=((1,0),0)), sg.Spin(values=getRange(stepsDepth[0],stepsDepth[1],stepsDepth[2]),initial_value=0.0,size=(10,1), disabled=True, background_color='white', text_color='black',key="DCtrl")],
-                [sg.Checkbox('Speed Control\t',disabled=True, default=False, key='SpeedControlON',enable_events=True),
-                 sg.T('Speed:', pad=((1,0),0)), sg.Spin(values=getRange(stepsVelocity[0],stepsVelocity[1],stepsVelocity[2]),initial_value=0.0,size=(10,1), disabled=True, background_color='white', text_color='black',key="SCtrl")],],
-                            title="Controller Config",title_color="red")],
+                [sg.Checkbox('Heading Control\t',disabled=True, default=False, font=statusTextFont,key='HeadingControlON',enable_events=True),
+                 sg.T('Heading Angle:', font=statusTextFont, size=(20,1),justification="right"), sg.Spin(values=getRange(stepsYaw[0],stepsYaw[1],stepsYaw[2]),initial_value=0.0,font=statusTextFont,size=statusDataSize,disabled=True, background_color='white', text_color='black',key="HCtrl")],
+                [sg.Checkbox('Pitch Control\t',disabled=True, default=False, key='PitchControlON',font=statusTextFont,enable_events=True),
+                 sg.T('Pitch Angle:', font=statusTextFont,size=(20,1),justification="right"), sg.Spin(values=getRange(stepsPitch[0],stepsPitch[1],stepsPitch[2]),initial_value=0.0,font=statusTextFont,size=statusDataSize, disabled=True, background_color='white', text_color='black',key="PCtrl")],
+                [sg.Checkbox('Depth Control\t',disabled=True, default=False,font=statusTextFont, key='DepthControlON',enable_events=True),
+                 sg.T('Depth:', font=statusTextFont,size=(20,1),justification="right"), sg.Spin(values=getRange(stepsDepth[0],stepsDepth[1],stepsDepth[2]),initial_value=0.0,font=statusTextFont,size=statusDataSize, disabled=True, background_color='white', text_color='black',key="DCtrl")],
+                [sg.Checkbox('Speed Control\t',disabled=True, default=False, font=statusTextFont, key='SpeedControlON',enable_events=True),
+                 sg.T('Speed:', font=statusTextFont,size=(20,1),justification="right"), sg.Spin(values=getRange(stepsVelocity[0],stepsVelocity[1],stepsVelocity[2]),initial_value=0.0, font=statusTextFont,size=statusDataSize,disabled=True, background_color='white', text_color='black',key="SCtrl")],],
+                            title="Controller Config",title_color=titleColor,font=statusTextFont)],
             [sg.Frame(layout=[
-                [sg.Text('File:', size=(8, 1)), sg.Input(key="MissionFile"), sg.FileBrowse()],
-                [sg.B('Compile', key="MissionCompile"),
-                sg.B('Load', key="MissionLoad",disabled=True),
-                sg.B('Execute', key="MissionExecute",disabled=True)]],
-                            title="Mission File", title_color="red")],
+                [sg.Text('File:', font=statusTextFont), sg.Input(key="MissionFile",font=statusTextFont), sg.FileBrowse(font=statusTextFont)],
+                [sg.B('Compile', key="MissionCompile",font=statusTextFont),
+                sg.B('Load', key="MissionLoad",disabled=True,font=statusTextFont),
+                sg.B('Execute', key="MissionExecute",disabled=True,font=statusTextFont)]],
+                            title="Mission File", title_color=titleColor,font=statusTextFont)],
             [sg.Submit('Update')]]
 
 
 col1 =    [ [sg.Frame(layout=[
-                [sg.T('DISCONNECTED',justification="center", background_color="red", key='VehicleStatus')]],
-                            title="Vehicle Status", title_color="red")],
+                [sg.T('DISCONNECTED',font=statusTextFont,justification="center", background_color="red", key='VehicleStatus')]],
+                            title="Vehicle Status", title_color=titleColor,font=statusTextFont)],
             [sg.Frame(layout=[
-                [sg.T("Timeout: ", pad=((1,0),0)), 
-                 sg.In(str(HeartbeatTimeout),size=(10,1), disabled=False, background_color='white', text_color='black',key="HeartTimeout")]],
-                            title="Heartbeat Timeout", title_color="red")],
+                [sg.T("Timeout: ", font=statusTextFont), 
+                 sg.In(str(HeartbeatTimeout),size=(10,1),font=statusTextFont, disabled=False, background_color='white', text_color='black',key="HeartTimeout")]],
+                            title="Heartbeat Timeout", title_color=titleColor,font=statusTextFont)],
             [sg.Frame(layout=[
-                [sg.T("Port Name: ", pad=((1,0),0)),
-                 sg.In(serialPortName,size=(10,1), disabled=False, background_color='white', text_color='black',key="PortName")],
-                [sg.T("Port baudrate: ", pad=((1,0),0)),
-                 sg.In(str(serialBaudrate),size=(10,1), disabled=False, background_color='white', text_color='black',key="PortBaudrate")]],
-                            title="Port", title_color="red")],
+                [sg.T("Port Name:", font=statusTextFont),
+                 sg.In(serialPortName,size=(15,1),font=statusTextFont, disabled=False, background_color='white', text_color='black',key="PortName")],
+                [sg.T("Port Baud: ", font=statusTextFont),
+                 sg.In(str(serialBaudrate),size=(15,1),font=statusTextFont, disabled=False, background_color='white', text_color='black',key="PortBaudrate")],
+                [sg.B('Connect', key="ConnectMED",font=statusTextFont)]],
+                            title="Vehicle", title_color=titleColor,font=statusTextFont)],
             [sg.Frame(layout=[
-                [sg.T("Max Depth: ", pad=((1,0),0)), 
-                 sg.In(str(safetyParams["MaxDepth"]),size=(10,1), disabled=False, background_color='white', text_color='black',key="MaxDepth")],
-                [sg.T("Max Pitch: ", pad=((1,0),0)), 
-                 sg.In(str(safetyParams["MaxPitch"]),size=(10,1), disabled=False, background_color='white', text_color='black',key="MaxPitch")],
-                [sg.T("Max Velocity: ", pad=((1,0),0)), 
-                 sg.In(str(safetyParams["MaxVelocity"]),size=(10,1), disabled=False, background_color='white', text_color='black',key="MaxVelocity")]],
-                            title="Safety Parameters", title_color="red")]]
+                [sg.T("Port Name:", font=statusTextFont),
+                 sg.In(serialPortName,size=(15,1),font=statusTextFont, disabled=False, background_color='white', text_color='black',key="BoatGPSPortName")],
+                [sg.T("Port Baud: ", font=statusTextFont),
+                 sg.In(str(serialBaudrate),size=(15,1),font=statusTextFont, disabled=False, background_color='white', text_color='black',key="BoatGPSPortBaudrate")],
+                [sg.B('Connect', key="ConnectBoatGPS",font=statusTextFont)]],
+                            title="Boat GPS", title_color=titleColor,font=statusTextFont)],
+            [sg.Frame(layout=[
+                [sg.T("Max Depth: ", font=statusTextFont), 
+                 sg.In(str(safetyParams["MaxDepth"]),size=(10,1),font=statusTextFont, disabled=False, background_color='white', text_color='black',key="MaxDepth")],
+                [sg.T("Max Pitch: ", font=statusTextFont), 
+                 sg.In(str(safetyParams["MaxPitch"]),size=(10,1),font=statusTextFont, disabled=False, background_color='white', text_color='black',key="MaxPitch")],
+                [sg.T("Max Velocity: ", font=statusTextFont), 
+                 sg.In(str(safetyParams["MaxVelocity"]),size=(10,1),font=statusTextFont, disabled=False, background_color='white', text_color='black',key="MaxVelocity")]],
+                            title="Safety Parameters", title_color=titleColor,font=statusTextFont)]]
 
 
 layout = [
@@ -149,63 +174,60 @@ layout = [
 
 window = sg.Window("CBOT Control", layout)
 
-def updateStatus():
+def updateStatus(ser):
   global window, MEDheartbeatCount, MEDlastHeartbeat, firstConnectionFlag
-  ser.flushInput()
-  readData = ser.readline().decode()
-  readData = readData.strip().split(',')
-  if(readData[0]=="MED"):
-    for param in readData[1:]:
-      param = param.split(':')
-      try:
-        if(param[0]!=""):
-          window.Element(param[0].strip()).Update(param[1])
-      except:
-        pass
-    firstConnectionFlag = 1
-    MEDlastHeartbeat = time.time()
-    MEDheartbeatCount = 5
+  if(isSerOpen(ser)==1):
+    readData = ser.readline().decode().strip().split(',')
+    if(readData[0]=="MED"):
+      for param in readData[1:]:
+        param = param.split(':')
+        try:
+          if(param[0]!=""):
+            window.Element(param[0].strip()).Update(param[1])
+        except:
+          pass
+      firstConnectionFlag = 1
+      MEDlastHeartbeat = time.time()
+      MEDheartbeatCount = 5
 
-def updatePort(portname,baudrate):
-	global serialBaudrate,serialPortName,ser,window
+def updatePort(ser,portname,baudrate):
+	global serialBaudrate,serialPortName,window
 	if(portname!=serialPortName):
-	  	try:
-	  		ser.port = portname
-	  		if(not ser.isOpen()):
-	  			ser.open()
-	  		serialPortName = portname
-	  	except:
-	  		ser.port = serialPortName
-	  		if(not ser.isOpen()):
-	  			ser.open()
-	  		sg.popup("Error, cannot open new port",title="Error")
+		try:
+			ser.port = portname
+			if(not ser.isOpen()):
+				ser.open()
+				serialPortName = portname
+		except:
+			ser.port = serialPortName
+			if(not ser.isOpen()):
+				ser.open()
 	if(baudrate!=serialBaudrate):
-  		try:
-  			ser.baudrate = baudrate
-  			serialBaudrate = baudrate
-  		except:
-  			sg.popup("Error, could not set the new baudrate",title="Error")
-
+		try:
+			ser.baudrate = baudrate
+			serialBaudrate = baudrate
+		except:
+			pass
 	window.Element("PortName").Update(serialPortName)
 	window.Element("PortBaudrate").Update(serialBaudrate)
 
-def sendMessage(values):
-  global ser
-  message = "GUI,"
-  for key in values:
-    if (values[key]==True):
-      msg = "1"
-    elif(values[key]==False):
-      msg = "0"
-    elif(values[key]==""):
-      msg = "null"
-    else:
-      msg = str(values[key])
-    if(key!="PortName" and key!="PortBaudrate" and key!="Browse" and key!="MissionFile"):
-      message += key + ":" + msg + ","
-  message += "\r\n"
-  ser.flushOutput()
-  ser.write(message.encode())
+def sendMessage(ser,values):
+  if(isSerOpen(ser)!=0):
+    message = "GUI,"
+    for key in values:
+      if (values[key]==True):
+        msg = "1"
+      elif(values[key]==False):
+        msg = "0"
+      elif(values[key]==""):
+        msg = "null"
+      else:
+        msg = str(values[key])
+      if(not ("port" in str(key).lower()) and key!="Browse" and key!="MissionFile"):
+        message += key + ":" + msg + ","
+    message += "\r\n"
+    ser.flushOutput()
+    ser.write(message.encode())
 
 def checkValidNumber(num):
   num = str(num)
@@ -217,7 +239,6 @@ def updateHeartbeat(values):
     HeartbeatTimeout = float(values["HeartTimeout"])
   else:
     invalidMessageFlag = 1
-    sg.popup("Invalid Heartbeat Timeout",title="Error")
   values["HeartTimeout"] = HeartbeatTimeout
   window.Element("HeartTimeout").Update(value=HeartbeatTimeout)
   return values
@@ -295,68 +316,135 @@ def updateThrusters(values,mode=""):
   window.Element('T4').Update(value=values["T4"])
   return values
 
-def Timer(starttime):
+def Timer(starttime,timeout):
   timeElapsed = time.time() - starttime
-  if(timeElapsed>float(heartbeatRate)):
+  if(timeElapsed>float(timeout)):
     return True
   else:
     return False
 
-def Timer2():
-  global MEDheartbeatCount, MEDlastHeartbeat, MEDheartbeatTimeout,window
+def Timer2(window):
+  global MEDheartbeatCount, MEDlastHeartbeat, MEDheartbeatTimeout
   timeElapsed = time.time() - MEDlastHeartbeat
-  if(timeElapsed>MEDheartbeatTimeout):
+  if(timeElapsed>MEDheartbeatTimeout and MEDheartbeatCount>0):
     MEDheartbeatCount-=1
     MEDlastHeartbeat = time.time()
+  elif(MEDheartbeatCount==0):
+    window.Element("VehicleStatus").Update("DISCONNECTED",background_color="red")
+    MEDheartbeatCount = 0
+    MEDconnectionStatus = 0
   if(MEDheartbeatCount>0):
     window.Element("VehicleStatus").Update("CONNECTED",background_color="green")
+
+def sendMissionFile(ser):
+  global missionDictionary, missionLoadStatus
+  if(isSerOpen(ser)!=0):
+    message2 = json.dumps(missionDictionary)
+    message2 = "GUI,MISSION," + str(message2) + "\r\n"
+    ser.flushOutput()
+    ser.write(message2.encode())
+
+
+def sendExecuteMessage(ser):
+  if(isSerOpen(ser)!=0):
+    message3 = "GUI,EXECUTEMISSION" + "\r\n"
+    ser.flushOutput()
+    ser.write(message3.encode())
+
+def compileMission(values,window):
+  global missionLoadStatus, missionDictionary
+  missionLoadStatus = 0
+  if(values["MissionFile"]!="null" and values["MissionFile"]!=""):
+    values["MissionFile"] = str(values["MissionFile"])
+    ext = values["MissionFile"].strip().split('.')
+    if(ext[-1]=="txt"):
+      try:
+        missionDictionary = MissionCompiler.readMission(values["MissionFile"])
+        window.Element("MissionLoad").Update(disabled=False)
+      except Exception as e:
+        window.Element("MissionLoad").Update(disabled=True)
+    elif(ext[-1]=="kml"):
+      try:
+        missionDictionary = kmlCompiler.read(filename=values["MissionFile"])
+        window.Element("MissionLoad").Update(disabled=False)
+      except Exception as e:
+        window.Element("MissionLoad").Update(disabled=True)
+    else:
+      window.Element("MissionLoad").Update(disabled=True)
+
+def isSerOpen(ser):
+  global serialConnected
+  if(serialConnected):
+    try:
+      if(ser.in_waiting>0):
+        return 1
+      elif(ser.in_waiting>=0):
+        return 2
+      return 0
+    except:
+      serialConnected = 0
+      return 0
   else:
-    window.Element("VehicleStatus").Update("DISCONNECTED",background_color="red")
-  if(MEDheartbeatCount<-1):
-    MEDheartbeatCount = -1
+    serialConnected = 0
+    return 0
 
-def sendMissionFile():
-  global missionDictionary, ser, missionLoadStatus
-  message2 = json.dumps(missionDictionary)
-  message2 = "GUI,MISSION," + str(message2) + "\r\n"
-  ser.flushOutput()
-  ser.write(message2.encode())
+def sendHeartbeat(ser):
+  global startTime
+  if(isSerOpen(ser)!=0):
+    message = "GUIHEARTBEAT\r\n"
+    ser.write(message.encode())
+    startTime = time.time()
 
-def sendExecuteMessage():
-  global ser
-  message3 = "GUI,EXECUTEMISSION" + "\r\n"
-  ser.flushOutput()
-  ser.write(message3.encode())
+def updateSystemTime(window):
+  e = datetime.datetime.now()
+  window.Element("-SYSTEMTIME-").Update("{:02d}:{:02d}:{:02d}".format(int(e.hour),int(e.minute),int(e.second)))
+
+def updateConnectedTimer(window,t2):
+  t = time.time() - t2
+  m = t // 60
+  s = int(t % 60)
+  h = int(m // 60)
+  m = int(m % 60)
+  window.Element("-TIMER-").Update("{:02d}:{:02d}:{:02d}".format(h,m,s))
 
 while True:
-    event, values = window.read(timeout = 0.01)
-    if(event == "Exit" or event == None):
-        break
+    event, values = window.read(timeout = 10)
+    updateSystemTime(window)
 
     while(not serialConnected):
-      event, values = window.read(timeout = 0.01)
-      if(event=="Update"):
+      window.Element("VehicleStatus").Update("DISCONNECTED",background_color="red")
+      MEDheartbeatCount = 0
+      event, values = window.read(timeout=100)
+      updateSystemTime(window)
+      if(event=="ConnectMED" or event=="ConnectBoatGPS"):
         try:
-          ser = serial.Serial(port=values["PortName"],baudrate=values["PortBaudrate"],writeTimeout=0.1,timeout=0.01,rtscts=True,dsrdtr=True)
+          ser = serial.Serial(port=values["PortName"],baudrate=values["PortBaudrate"],timeout=0.1,rtscts=True,dsrdtr=True)
           print("CONNECTED to serial")
           serialConnected = 1
+          connStartTime = time.time()
         except:
-          sg.popup("No serial Connection",title="Error")
+          serialConnected = 0
+          pass
+      if(event == sg.WIN_CLOSED or event == 'Exit' or event==None):
+        break
+      time.sleep(0.1)
 
-    message = "GUIHEARTBEAT\r\n"
-    if(Timer(startTime)):
-       ser.write(message.encode())
-       startTime = time.time()
+    if(event == sg.WIN_CLOSED or event == 'Exit' or event==None):
+        break
+
+    threading.Thread(target=updateStatus,args=(ser,),daemon=True).start()
+
+    if(Timer(startTime,float(heartbeatRate))):
+      threading.Thread(target=sendHeartbeat,args=(ser,),daemon=True).start()
+    
+
+    if(serialConnected):
+      updateConnectedTimer(window,connStartTime)
 
     if(firstConnectionFlag):
-      Timer2()
+      Timer2(window)
     
-    if(MEDheartbeatCount==0):
-      MEDconnectionStatus = 0
-      sg.popup("Connection broke with the Vehicle",title="Error")
-
-    updateStatus()
-    
+      
     if(values["Teleop_mode"]==1 and event=="Teleop_mode"):
       window.Element("AUV_mode").Update(False)
       window.Element("MissionExecute").Update(disabled=True)
@@ -368,7 +456,7 @@ while True:
       window.Element("MissionInactive").Update(disabled=True)
     elif(values["AUV_mode"]==1 and event=="AUV_mode"):
       window.Element("Teleop_mode").Update(False)
-      window.Element("MissionExecute").Update(disabled=(bool(missionLoadStatus==0)))
+      window.Element("MissionExecute").Update(disabled=(missionLoadStatus==0))
       window.Element("THRUSTERS_ON").Update(value=True,disabled=True)
       window.Element("CONTROLLER_ON").Update(value=True,disabled=True)
       window.Element("GUIDANCE_ON").Update(value=True,disabled=True)
@@ -488,44 +576,23 @@ while True:
       window.Element("PCtrl").Update(values=getRange(stepsPitch[0],stepsPitch[1],stepsPitch[2]))
       window.Element("SCtrl").Update(values=getRange(stepsVelocity[0],stepsVelocity[1],stepsVelocity[2]))
 
-      updatePort(values["PortName"],values["PortBaudrate"])
+      updatePort(ser,values["PortName"],values["PortBaudrate"])
       if(not invalidMessageFlag):
-        sendMessage(values)
+        threading.Thread(target=sendMessage,args=(ser,values,),daemon=True).start()
       else:
         sg.popup("Message not sent",title="Error")
 
     elif(event=="MissionCompile"):
-      missionLoadStatus = 0
-      if(values["MissionFile"]!="null" and values["MissionFile"]!=""):
-        values["MissionFile"] = str(values["MissionFile"])
-        ext = values["MissionFile"].strip().split('.')
-        if(ext[-1]=="txt"):
-          try:
-            missionDictionary = MissionCompiler.readMission(values["MissionFile"])
-            sg.popup("Compilation Successful\n Ready to load file",title="Message")
-            window.Element("MissionLoad").Update(disabled=False)
-          except Exception as e:
-            sg.popup("Compilation Failed\nReason: " + str(e),title="Error")
-            window.Element("MissionLoad").Update(disabled=True)
-        elif(ext[-1]=="kml"):
-          try:
-            missionDictionary = kmlCompiler.read(filename=values["MissionFile"])
-            sg.popup("Compilation Successful\n Ready to load file",title="Message")
-            window.Element("MissionLoad").Update(disabled=False)
-          except Exception as e:
-            sg.popup("Compilation Failed\nReason: " + str(e),title="Error")
-            window.Element("MissionLoad").Update(disabled=True)
-        else:
-          sg.popup("Invalid File Extension ",title="Error")
-          window.Element("MissionLoad").Update(disabled=True)
+      threading.Thread(target=compileMission,args=(values,window,),daemon=True).start()
 
     elif(event=="MissionLoad"):
-      sendMissionFile()
+      threading.Thread(target=sendMissionFile,args=(ser,),daemon=True).start()
       missionLoadStatus = 1
     elif(event=="MissionExecute"):
-      sendMessage(values)
+      threading.Thread(target=sendMessage,args=(ser,values,),daemon=True).start()
       time.sleep(1)
-      sendExecuteMessage()
+      threading.Thread(target=sendExecuteMessage,args=(ser,),daemon=True).start()
+    time.sleep(0.1)
 
 window.close()
 ser.close()

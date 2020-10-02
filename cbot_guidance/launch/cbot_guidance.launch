@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-    <node name="guidance_node" pkg="cbot_guidance" type="guidance_node" output="screen">
+    <node name="guidance_node" pkg="cbot_guidance" type="guidance_node" respawn="true" output="screen">
     </node>
 </launch>

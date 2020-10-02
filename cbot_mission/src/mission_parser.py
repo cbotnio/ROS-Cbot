@@ -103,6 +103,7 @@ def sendMission():
 	miss.nominal_velocity = float(guidanceInputs["speed"])
 	miss.guidance_mode = float(guidanceInputs["mode"])
 	timeout = float(guidanceInputs["timeout"])
+	print("Sending mission")
 	return guidance_srv(miss)
 
 def checkTimeout(startTime,timeout):
@@ -232,7 +233,6 @@ if __name__=='__main__':
 				time.sleep(0.1)
 
 			checkStatus()
-			print(stopMissionFlag==0 and bool(Mission))
 			if(stopMissionFlag==0 and bool(Mission)):
 				print("In Mission")
 				setSafety(Mission["Safety"])
