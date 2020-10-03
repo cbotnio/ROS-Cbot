@@ -229,8 +229,7 @@ if __name__=='__main__':
 				missionsCompletedFlag = 0
 
 			while(not (rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive")):
-				print("Checking from outer loop")
-				time.sleep(0.1)
+				time.sleep(1)
 
 			checkStatus()
 			if(stopMissionFlag==0 and bool(Mission)):

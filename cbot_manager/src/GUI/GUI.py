@@ -284,7 +284,6 @@ def checkControlValues(values):
     values["PCtrl"] = float(values["PCtrl"]) if(checkValidNumber(values["PCtrl"])) else 0.0
     values["SCtrl"] = float(values["SCtrl"]) if(checkValidNumber(values["SCtrl"])) else 0.0
     invalidMessageFlag = 1
-    sg.popup("Invalid Control Input",title="Error")
 
   window.Element('HCtrl').Update(value=values["HCtrl"])
   window.Element('DCtrl').Update(value=values["DCtrl"])
@@ -432,11 +431,12 @@ while True:
     if(event == sg.WIN_CLOSED or event == 'Exit' or event==None):
         break
 
-    threading.Thread(target=updateStatus,args=(ser,),daemon=True).start()
+    # threading.Thread(target=updateStatus,args=(ser,),daemon=True).start()
 
     if(Timer(startTime,float(heartbeatRate))):
       threading.Thread(target=sendHeartbeat,args=(ser,),daemon=True).start()
-    
+
+    updateStatus(ser)
 
     if(serialConnected):
       updateConnectedTimer(window,connStartTime)
@@ -590,7 +590,7 @@ while True:
       missionLoadStatus = 1
     elif(event=="MissionExecute"):
       threading.Thread(target=sendMessage,args=(ser,values,),daemon=True).start()
-      time.sleep(1)
+      time.sleep(0.5)
       threading.Thread(target=sendExecuteMessage,args=(ser,),daemon=True).start()
     time.sleep(0.1)
 

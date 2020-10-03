@@ -101,15 +101,14 @@ def parseData():
 		if(message["MissionInactive"]):
 			setROSParam("/Status","Stop")
 			setROSParam("/HIL_ON",0)
-			print("HIL from AUV Stop")
-			setROSParam("/Controller_ON",0)
 			setROSParam("/GUIDANCE_ON",0)
+			setROSParam("/Controller_ON",0)
 
 		elif(message["Park"]):
 			setROSParam("/Status","Park")
 			setROSParam("/HIL_ON",0)
-			setROSParam("/Controller_ON",0)
 			setROSParam("/GUIDANCE_ON",0)
+			setROSParam("/Controller_ON",0)
 				
 		elif(message["Drive"]):
 			setROSParam("/Status","Drive")
@@ -188,7 +187,7 @@ if __name__ == "__main__":
 	
 	rospy.Subscriber("/AHRS",AHRS,ahrsCallback)
 	rospy.Subscriber("/GPS",GPS,gpsCallback)
-	rospy.Timer(rospy.Duration(0.1), getData)
-	rospy.Timer(rospy.Duration(0.1), sendStatusUpdate)
-	rospy.Timer(rospy.Duration(0.1), Timer)
+	rospy.Timer(rospy.Duration(0.5), getData)
+	rospy.Timer(rospy.Duration(1), sendStatusUpdate)
+	rospy.Timer(rospy.Duration(0.5), Timer)
 	rospy.spin()
