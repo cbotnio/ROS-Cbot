@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   cbot_ros_msgs
   genmsg
+  dynamic_reconfigure
 )
 
 ## Generate messages in the 'msg' folder

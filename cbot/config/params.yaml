@@ -1,23 +1,20 @@
 reference_latitude: 15.4507
 reference_longitude: 73.8041
 
-Sensor/Names: "GPS, AHRS"
+gps_port: "/tmp/gps-read"
+gps_baudrate: B9600
+gps_status: 1
 
-GPS/port: "/tmp/gps-read"
-GPS/baudrate: B9600
-GPS/status: 1
+ahrs_port: "/tmp/ahrs-read"
+ahrs_baudrate: B115200
+ahrs_status: 1
 
-AHRS/port: "/tmp/ahrs-read"
-AHRS/baudrate: B115200
-AHRS/status: 1
+thrusters_port: "/tmp/thr-read"
+thrusters_baudrate: B9600
 
-HIL_port: "/tmp/thr-read"
-HIL_baud: B9600
+guidance_on: 1
+thrusters_on: 1
 
-Controller_ON: 1
-GUIDANCE_ON: 1
-HIL_ON: 1
-
-Mode: "AUV"
-Status: "Drive"
+mode: "AUV"
+status: "Drive"
 

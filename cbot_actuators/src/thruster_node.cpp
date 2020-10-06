@@ -17,7 +17,7 @@ double comm_mode_V, diff_mode_V;
 float T1=0, T2=0, PreT1, PreT2, sat_F = 100.0;
 float T3=0, T4=0, PreT3, PreT4, sat_V = 100.0;
 
-ros::Publisher thrusterPub;
+ros::Publisher thruster_pub;
 
 // ASV so 2 thrusters
 void calcT1T2(float comm_mode, float diff_mode, float *T11, float *T22, float *PreT11, float *PreT22, float thrust_saturation)
@@ -63,7 +63,7 @@ bool thrusterControlCallback(cbot_ros_msgs::ThrusterControl::Request &req, cbot_
         thrusterData.T3 = T3;
         thrusterData.T4 = T4;
 
-        thrusterPub.publish(thrusterData);
+        thruster_pub.publish(thrusterData);
     }
     
     res.comm_mode_F = comm_mode_F;
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     ros::NodeHandle n;
 
     thruster_control_server = n.advertiseService("thruster_control", thrusterControlCallback);
-    thrusterPub = n.advertise<cbot_ros_msgs::ThrusterData>("/Thrusters",5);
+    thruster_pub = n.advertise<cbot_ros_msgs::ThrusterData>("/Thrusters",5);
     ros::spin();
     return 0;
 }

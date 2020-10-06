@@ -123,11 +123,11 @@ def updateTimeout(startTime, timeout):
 def  checkStatus():
 	global stopMissionFlag
 	# Add all check conditions like pause and perform 
-	if(rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive"):
+	if(rospy.get_param('mode').lower()=="auv" and rospy.get_param('status').lower()=="drive"):
 		stopMissionFlag = 0
 		# rospy.set_param("/HIL_ON",1)
 		return 1
-	elif(rospy.get_param('Status').lower()=="park"):
+	elif(rospy.get_param('status').lower()=="park"):
 		try:
 			updateTimeout(startTime,timeout)
 		except:
@@ -135,7 +135,7 @@ def  checkStatus():
 		# rospy.set_param("/HIL_ON",0)
 		stopMissionFlag = 0
 		return 2
-	elif(rospy.get_param('Status').lower()=="stop"):
+	elif(rospy.get_param('status').lower()=="stop"):
 		stopMissionFlag = 1
 		# rospy.set_param("/HIL_ON",0)
 		return 3
@@ -225,10 +225,10 @@ if __name__=='__main__':
 		print("Connected to Server")
 		while not rospy.is_shutdown():
 			if(missionsCompletedFlag):
-				rospy.set_param("Status","Stop")
+				rospy.set_param("status","Stop")
 				missionsCompletedFlag = 0
 
-			while(not (rospy.get_param('Mode').lower()=="auv" and rospy.get_param('Status').lower()=="drive")):
+			while(not (rospy.get_param('mode').lower()=="auv" and rospy.get_param('status').lower()=="drive")):
 				time.sleep(1)
 
 			checkStatus()

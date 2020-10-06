@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-	<rosparam file="$(find cbot_control)/config/lqr_gains.yaml" command="load" />
 	<rosparam file="$(find cbot_control)/config/SafetyParams.yaml" command="load" />
     <node name="control_node" pkg="cbot_control" type="control_node" respawn="true" output="screen">
     </node>

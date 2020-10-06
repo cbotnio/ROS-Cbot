@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <launch>
+	<rosparam file="$(find cbot_guidance)/config/params.yaml" command="load" />
     <node name="guidance_node" pkg="cbot_guidance" type="guidance_node" respawn="true" output="screen">
     </node>
 </launch>

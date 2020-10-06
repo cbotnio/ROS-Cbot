@@ -1,23 +1,64 @@
-#include "ros/ros.h"
-#include "cbot_ros_msgs/AHRS.h"
-#include "nav_msgs/Odometry.h"
-#include "cbot_ros_msgs/ControllerSettings.h"
-#include "cbot_ros_msgs/ThrusterControl.h"
-#include "cbot_ros_msgs/ControllerInputs.h"
-#include "cbot_control/controllers.hpp"
+#include <cbot_control/controllers_node.hpp>
 
-#define PI 3.141592653
-#define deg2rad 0.0174532925
-#define rad2deg 57.2957795
+namespace cbot_control{
 
-double desired_heading, desired_thrust, desired_pitch, desired_depth=1, desired_u=0;
-double yaw, yaw_rate, pitch, pitch_rate,roll=0, last_pitch, last_pitch_rate, Ts, depth,Vx,Vy,Vz;
-double common_mode_F = 0, differential_mode_F = 0;
-double common_mode_V = 0, differential_mode_V = 0;
-int Controller_ON, HeadingCtrlON, PitchCtrlON, VelocityCtrlON, DepthCtrlON, first_diff_pitch=0, flag=0;
+ControllersNode::ControllersNode(const ros::NodeHandle& nh,const ros::NodeHandle& private_nh)
+    :nh_(nh),
+     private_nh_(private_nh),
+     controllers_(nh,private_nh),
+     dyn_config_server_(private_nh)
+{
+	// Dynamic reconfigure
+    dynamic_reconfigure::Server<cbot_control::ControllersConfig>::CallbackType f;
+    f = boost::bind(&ControllersNode::DynConfigCallback, this, _1, _2);
+    dyn_config_server_.setCallback(f);
 
+    // Service Server to recieve control commands
+    controller_inputs_server = nh_.advertiseService("controller_inputs", &ControllersNode::controllerInputsCallback,this);
 
-void ahrsCallback(const cbot_ros_msgs::AHRS::ConstPtr& msg)
+    // Service Client to send thruster commands
+    thruster_control_client = nh_.serviceClient<cbot_ros_msgs::ThrusterControl>("thruster_control");
+
+    // Sensor subscribers
+    ahrs_sub = nh_.subscribe("AHRS", 1, &ControllersNode::ahrsCallback, this);
+    pose_sub = nh_.subscribe("/cbot/pose_gt", 1, &ControllersNode::poseCallback, this);
+
+    // Loop for running the controller at 10Hz.
+    timer = nh_.createTimer(ros::Duration(0.1), &ControllersNode::timerCallback, this);
+
+}
+
+ControllersNode::~ControllersNode(){}
+    
+void ControllersNode::DynConfigCallback(cbot_control::ControllersConfig &config,uint32_t level)
+{
+  Eigen::VectorXd k_yaw(4);
+  Eigen::VectorXd k_pitch(4);
+  Eigen::Vector2d k_depth;
+  Eigen::Vector2d k_speed;
+
+  k_yaw << config.yaw_k, config.yaw_kr, config.yaw_ki, config.yaw_kaw;
+  k_pitch << config.pitch_k, config.pitch_kr, config.pitch_ki, config.pitch_kaw;
+  k_depth << config.depth_k, config.depth_ki;
+  k_speed << config.speed_k, config.speed_ki;
+
+  controllers_.setYawGains(k_yaw);
+  controllers_.setYawDMSaturation(config.yaw_dm_saturation);
+  controllers_.setPitchGains(k_pitch);
+  controllers_.setPitchDMSaturation(config.pitch_dm_saturation);
+  controllers_.setDepthGains(k_depth);
+  controllers_.setDepthCMSaturation(config.depth_cm_saturation);
+  controllers_.setSpeedGains(k_speed);
+  controllers_.setSpeedCMSaturation(config.speed_cm_saturation);
+
+  heading_ctrl_on = (int)(config.heading_ctrl);
+  pitch_ctrl_on = (int)(config.pitch_ctrl);
+  depth_ctrl_on = (int)(config.depth_ctrl);
+  speed_ctrl_on = (int)(config.speed_ctrl);
+  controller_on = (int)(config.controller_on);
+}
+
+void ControllersNode::ahrsCallback(const cbot_ros_msgs::AHRS::ConstPtr& msg)
 {
     if(msg->AHRS_Status == 2)
     {
@@ -28,32 +69,21 @@ void ahrsCallback(const cbot_ros_msgs::AHRS::ConstPtr& msg)
     }
 }
 
-void pose_callback(const nav_msgs::Odometry::ConstPtr& msg){
-    depth = -msg->pose.pose.position.z;
-    Vx = msg->twist.twist.linear.y;
-    Vy = msg->twist.twist.linear.x;
-    Vz = -msg->twist.twist.linear.z;
-}
-
-double getBodyVel(){
-    double p = pitch*deg2rad, y = yaw*deg2rad;
-    return (cos(p)*cos(y)*Vx + sin(y)*cos(p)*Vy - sin(p)*Vz);
-}
-
-bool controllerSettingsCallback(cbot_ros_msgs::ControllerSettings::Request &req, cbot_ros_msgs::ControllerSettings::Response &res)
+void ControllersNode::poseCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
-    if(req.update_settings)
-    {
-        ros::param::set("yaw_lqr_kyaw", req.yaw_lqr_kyaw);
-        ros::param::set("yaw_lqr_kr", req.yaw_lqr_kr);
-        res.yaw_lqr_kyaw = req.yaw_lqr_kyaw;
-        res.yaw_lqr_kr = req.yaw_lqr_kr;
-    }
-
-    return true;
+    depth = -msg->pose.pose.position.z;
+    vx = msg->twist.twist.linear.y;
+    vy = msg->twist.twist.linear.x;
+    vz = -msg->twist.twist.linear.z;
 }
 
-bool controllerInputsCallback(cbot_ros_msgs::ControllerInputs::Request &req, cbot_ros_msgs::ControllerInputs::Response &res)
+double ControllersNode::getBodyVel()
+{
+    double p = pitch*deg2rad, y = yaw*deg2rad;
+    return (cos(p)*cos(y)*vx + sin(y)*cos(p)*vy - sin(p)*vz);
+}
+
+bool ControllersNode::controllerInputsCallback(cbot_ros_msgs::ControllerInputs::Request &req, cbot_ros_msgs::ControllerInputs::Response &res)
 {
     desired_heading = req.desired_heading;
     desired_thrust = req.desired_thrust;
@@ -69,37 +99,39 @@ bool controllerInputsCallback(cbot_ros_msgs::ControllerInputs::Request &req, cbo
 }
 
 
-void timerCallback(const ros::TimerEvent& event)
+void ControllersNode::timerCallback(const ros::TimerEvent& event)
 {
-    ros::param::get("Controller_ON", Controller_ON);
-    ros::param::get("HeadingCtrl", HeadingCtrlON);
-    ros::param::get("PitchCtrl", PitchCtrlON);
-    ros::param::get("VelocityCtrl", VelocityCtrlON);
-    ros::param::get("DepthCtrl", DepthCtrlON);
-    double u = getBodyVel();
-    if(Controller_ON)
+	if(controller_on)
     {
         flag=0;
-        // common_mode_F = desired_thrust;
-        if(HeadingCtrlON)
-            differential_mode_F = CONTROLLERS::lqr_yaw(desired_heading, yaw, yaw_rate, Ts);
+        double u = getBodyVel();
+        // Heading Control
+        if(heading_ctrl_on)
+            differential_mode_F = controllers_.lqrYaw(desired_heading, yaw, yaw_rate, 0.1);
         else
             differential_mode_F = 0;
-        if(PitchCtrlON)
-            differential_mode_V = CONTROLLERS::lqr_pitch(desired_pitch, pitch, pitch_rate, Ts);
+
+        // Pitch Control
+        if(pitch_ctrl_on)
+            differential_mode_V = controllers_.lqrPitch(desired_pitch, pitch, pitch_rate, 0.1);
         else
             differential_mode_V = 0;
-        if(DepthCtrlON)
-            common_mode_V = CONTROLLERS::depth(desired_depth, depth, Ts);
+        
+        // Depth Control
+        if(depth_ctrl_on)
+            common_mode_V = controllers_.depth(desired_depth, depth, 0.1);
         else
             common_mode_V = 0;
-        if(VelocityCtrlON)
-            common_mode_F = CONTROLLERS::velocity(desired_u, u, Ts);
+        
+        // Speed Control
+        if(speed_ctrl_on)
+            common_mode_F = controllers_.velocity(desired_u, u, 0.1);
         else
             common_mode_F = 0;
 
         // printf("u: %f | CF %f | DF %f | CV %f | DV %f\n",u, common_mode_F, differential_mode_F,common_mode_V, differential_mode_V);
     
+    	// Call thruster service
         cbot_ros_msgs::ThrusterControl temp;
         temp.request.comm_mode_F = common_mode_F;
         temp.request.diff_mode_F = differential_mode_F;
@@ -111,7 +143,7 @@ void timerCallback(const ros::TimerEvent& event)
         {
         }
     }
-    else if(!Controller_ON && flag==0){
+    else if(!controller_on && flag==0){
         flag=1;
         cbot_ros_msgs::ThrusterControl temp;
         temp.request.comm_mode_F = 0;
@@ -122,26 +154,17 @@ void timerCallback(const ros::TimerEvent& event)
     }
 }
 
-ros::ServiceServer controller_settings_server, controller_inputs_server;
-ros::ServiceClient thruster_control_client;
+}
 
 int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "control_node");
     ros::Time::init();
-    ros::NodeHandle n;
-    n.getParam("Controller_ON", Controller_ON);
-    n.getParam("Ts_controller", Ts);
 
-    controller_settings_server = n.advertiseService("controller_settings", controllerSettingsCallback);
-    controller_inputs_server = n.advertiseService("controller_inputs", controllerInputsCallback);
-    thruster_control_client = n.serviceClient<cbot_ros_msgs::ThrusterControl>("thruster_control");
-
-    ros::Subscriber ahrs_sub = n.subscribe("AHRS", 1, ahrsCallback);
-    ros::Subscriber pose_sub = n.subscribe("/cbot/pose_gt", 1, pose_callback);
-
-    ros::Timer timer = n.createTimer(ros::Duration(Ts), timerCallback);
-
+    ros::NodeHandle nh, private_nh("~");
+    cbot_control::ControllersNode cbot_controller_(nh,private_nh);
+    
     ros::spin();
+    
     return  0;
 }

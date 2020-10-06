@@ -30,7 +30,7 @@ void timerCallback(const ros::TimerEvent& event)
 
 int main(int argc, char *argv[])
 {
-    ros::init(argc, argv, "NAVIGATION_NODE");
+    ros::init(argc, argv, "navigation_node");
     ros::Time::init();
     ros::NodeHandle n;
 
@@ -38,8 +38,8 @@ int main(int argc, char *argv[])
     n.getParam("reference_longitude", longitude_ref);
 
     UTM::LLtoUTM(23, latitude_ref, longitude_ref, &UTMN_ref, &UTME_ref, Zone);
-    navigation_pub = n.advertise<geometry_msgs::Pose>("/position", 5);
-    ros::Subscriber gps_sub = n.subscribe("/GPS", 5, gpsCallback);
+    navigation_pub = n.advertise<geometry_msgs::Pose>("/position", 1);
+    ros::Subscriber gps_sub = n.subscribe("/GPS", 1, gpsCallback);
     ros::Timer timer = n.createTimer(ros::Duration(0.05), timerCallback);
 
     ros::spin();

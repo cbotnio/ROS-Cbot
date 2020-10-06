@@ -21,14 +21,14 @@ int main(int argc, char *argv[])
     ros::NodeHandle n;
     
     std::string temp;
-    ros::param::getCached("GPS/port", temp);
+    ros::param::getCached("gps_port", temp);
     strcpy(GPS_port, temp.c_str());
     
-    ros::param::getCached("AHRS/port", temp);
+    ros::param::getCached("ahrs_port", temp);
     strcpy(AHRS_port, temp.c_str());
 
-    ros::param::getCached("GPS/baudrate", GPS_baud);
-    ros::param::getCached("AHRS/baudrate", AHRS_baud);
+    ros::param::getCached("gps_baudrate", GPS_baud);
+    ros::param::getCached("ahrs_baudrate", AHRS_baud);
 
     GPS gps(GPS_port, GPS_baud);
     IMU_AHRS ahrs(AHRS_port, AHRS_baud);

@@ -6,31 +6,28 @@
 
 #include "cbot_guidance/guidance.hpp"
 
-double GUIDANCE::acceptable_radius = 2;
+namespace cbot_guidance{
 
-double GUIDANCE::PsiC = 0;
-double GUIDANCE::Kp_Thrust = 0.098; 
-double GUIDANCE::Kd_Thrust = 0.0049;
-
-double GUIDANCE::desired_pos_x1 = 0; 
-double GUIDANCE::desired_pos_y1 = 0; 
-double GUIDANCE::desired_pos_x2 = 0; 
-double GUIDANCE::desired_pos_y2 = 0; 
-double GUIDANCE::desired_pos_xc = 0; 
-double GUIDANCE::desired_pos_yc = 0;
-double GUIDANCE::desired_heading = 0;
-
-double GUIDANCE::antiwindupLFW = 0; 
-double GUIDANCE::last_d = 0;
-double GUIDANCE::int_dist_err = 0;
-
-double GUIDANCE::desiredThrustCMF=0;
-
-int GUIDANCE::arc_follow_direction = 0;
-double GUIDANCE::antiwindupARC = 0;
-
-bool GUIDANCE::WayPtGuidance(double veh_x, double veh_y)
+Guidance::Guidance(const ros::NodeHandle& nh,const ros::NodeHandle& private_nh)
+    :nh_(nh),
+     private_nh_(private_nh),
+     initialized_parameters_(false)
 {
+    initializeParameters();
+}
+
+Guidance::~Guidance(){}
+
+void Guidance::initializeParameters(){
+    acceptable_radius = 2.0;
+
+    initialized_parameters_=true;
+}
+
+bool Guidance::WayPtGuidance(double veh_x, double veh_y)
+{
+    assert(initialized_parameters_==true);
+    
     double x_err, y_err, z_err, rho_squared, rho, vel;  // Calculate the desired heading using present position
     float eps = 0.0000001;
 
@@ -53,82 +50,88 @@ bool GUIDANCE::WayPtGuidance(double veh_x, double veh_y)
 }
 
 
-bool GUIDANCE::LineFollowGuidance(double veh_x, double veh_y, double Ts)
+bool Guidance::LineFollowGuidance(double veh_x, double veh_y, double Ts)
 {
-    double m, Beta, BetaN, EndPos, X1, X2, Y1, Y2, XEnd, YEnd, XNew, YNew, d, d_derivative, PsiDot, PsiH;
-    float U = 0.5, KAUW = 1/Ts, PsiMax = 1, RefH;
+    assert(initialized_parameters_==true);
+
+    double m, beta_n, x1, x2, y1, y2, x_end, y_end, x_new, y_new, d, d_derivative, psi_dot, psi_h;
+    float u = 0.5, kauw = 1/Ts, psi_max = 1, ref_h;
     double x_err, y_err;
     float eps = 0.0000001;
     
     double x_1, y_1;
 
-    X1 = GUIDANCE::desired_pos_x1;
-    Y1 = GUIDANCE::desired_pos_y1;
-    X2 = GUIDANCE::desired_pos_x2;
-    Y2 = GUIDANCE::desired_pos_y2;
+    x1 = desired_pos_x1;
+    y1 = desired_pos_y1;
+    x2 = desired_pos_x2;
+    y2 = desired_pos_y2;
 
     // ROS_INFO_STREAM("Following line %f %f to %f %f",X1,Y1,X2,Y2);
 
-    x_err = veh_x - X1;
-    y_err = veh_y - Y1;
+    x_err = veh_x - x1;
+    y_err = veh_y - y1;
     
-    y_1 = Y2 - Y1;
-    x_1 = X2 - X1;
+    y_1 = y2 - y1;
+    x_1 = x2 - x1;
 
-    BetaN = atan2(y_1, x_1+eps);
+    beta_n = atan2(y_1, x_1+eps);
 
-    XEnd = (X2-X1)*cos(-BetaN) - (Y2-Y1)*sin(-BetaN);
+    x_end = (x2-x1)*cos(-beta_n) - (y2-y1)*sin(-beta_n);
 
-    XNew = x_err*cos(-BetaN) - y_err*sin(-BetaN);
-    YNew = x_err*sin(-BetaN) + y_err*cos(-BetaN);
+    x_new = x_err*cos(-beta_n) - y_err*sin(-beta_n);
+    y_new = x_err*sin(-beta_n) + y_err*cos(-beta_n);
 
-    d = -YNew;
-    
+    d = -y_new;
+    std::cout << "Distance from Line: " << d << std::endl;
 
     d_derivative = (d-last_d)/Ts;
 
     last_d = d;
     
-    PsiDot = -(Kd_Thrust*d/U) - (d_derivative*Kp_Thrust/U) + GUIDANCE::antiwindupLFW;
-    PsiC = GUIDANCE::PsiC + PsiDot*Ts;
-    PsiH = GUIDANCE::PsiC;
+    psi_dot = -(lfw_kd*d/u) - (d_derivative*lfw_kp/u) + lfw_antiwindup;
+    lfw_psi_c = lfw_psi_c + psi_dot*Ts;
+    psi_h = lfw_psi_c;
 
-    if (GUIDANCE::PsiC > PsiMax)
-      PsiH = PsiMax;
+    if (lfw_psi_c > psi_max)
+      psi_h = psi_max;
 
-    else if (GUIDANCE::PsiC < -PsiMax)
-      PsiH = -PsiMax;
+    else if (lfw_psi_c < -psi_max)
+      psi_h = -psi_max;
 
-    antiwindupLFW = KAUW * (PsiH - GUIDANCE::PsiC);
-    RefH = BetaN - asin(PsiH);
+    lfw_antiwindup = kauw * (psi_h - lfw_psi_c);
+    ref_h = beta_n - asin(psi_h);
 
-    desired_heading = RefH * RAD_2_DEG;
+    desired_heading = ref_h * RAD_2_DEG;
     
-    if (XNew > (XEnd - 2)) 
+    if (x_new > (x_end - 2)) 
         return true;
 
     return false;
 }
 
-bool GUIDANCE::StKpGuidance(double veh_x, double veh_y)
+bool Guidance::StKpGuidance(double veh_x, double veh_y)
 {
+    assert(initialized_parameters_==true);
+
     double x_err, y_err, z_err, dist_err;
     float eps = 0.0000001;
 
-    x_err = GUIDANCE::desired_pos_x1 - veh_x;
-    y_err = GUIDANCE::desired_pos_y1 - veh_y;
+    x_err = desired_pos_x1 - veh_x;
+    y_err = desired_pos_y1 - veh_y;
     dist_err = x_err*x_err + y_err*y_err - 1;
     if (fabs(x_err) < eps) x_err += x_err/fabs(x_err)*eps;     // Divide-by-zero prevention
 
     desired_heading = atan2(y_err, x_err) * RAD_2_DEG;
     
-    desiredThrustCMF = 0.5*asin(dist_err/(fabs(dist_err)+1))*2/PI;
+    desired_thrust_cmf = 0.5*asin(dist_err/(fabs(dist_err)+1))*2/PI;
 
     return false;
 }
 
-bool GUIDANCE::ArcFollowGuidance(double veh_x, double veh_y) 
+bool Guidance::ArcFollowGuidance(double veh_x, double veh_y) 
 {
+    assert(initialized_parameters_==true);
+
     double gamma0 = 0.0, gammaend, gam, delta;
     short int k;
     double phi0 , phie, phi, beta;
@@ -142,7 +145,7 @@ bool GUIDANCE::ArcFollowGuidance(double veh_x, double veh_y)
     int firstArcFollow = 0;
     double heading;
 
-    double d_derivative, PsiDot, PsiH, KAUW = 1, PsiMax = 1, RefH, BetaN;
+    double d_derivative, psi_dot, psi_h, kauw = 1, psi_max = 1, ref_h, beta_n;
     MATRIX m1, m2, m3;
     m1.row = 2, m2.row = 2, m1.col = 2, m2.col = 1;
     m3.row = 2, m3.col = 1;
@@ -152,12 +155,12 @@ bool GUIDANCE::ArcFollowGuidance(double veh_x, double veh_y)
     else
       k = 1;  
 
-    Xs = GUIDANCE::desired_pos_x1;
-    Ys = GUIDANCE::desired_pos_y1;
-    Xe = GUIDANCE::desired_pos_x2;
-    Ye = GUIDANCE::desired_pos_y2;
-    Xc = GUIDANCE::desired_pos_xc;
-    Yc = GUIDANCE::desired_pos_yc;
+    Xs = desired_pos_x1;
+    Ys = desired_pos_y1;
+    Xe = desired_pos_x2;
+    Ye = desired_pos_y2;
+    Xc = desired_pos_xc;
+    Yc = desired_pos_yc;
 
     if(Xs != 0 and Ys !=0 and Xe != 0 and Ye != 0)
     {
@@ -212,25 +215,27 @@ bool GUIDANCE::ArcFollowGuidance(double veh_x, double veh_y)
 
         d = m3.m[1][0];
 
-        BetaN = (PI / 2) - beta;
+        beta_n = (PI / 2) - beta;
 
         d_derivative = (d - last_d);
 
         last_d = d;
 
-        PsiDot = -(Kd_Thrust) * d - d_derivative * (Kp_Thrust) + antiwindupARC;
-        PsiC = PsiC + PsiDot;
-        PsiH = PsiC;
+        psi_dot = -(arc_kd) * d - d_derivative * (arc_kp) + antiwindup_arc;
+        arc_psi_c = arc_psi_c + psi_dot;
+        psi_h = arc_psi_c;
 
-        if (PsiC > PsiMax)
-            PsiH = PsiMax;
-        if (PsiC < (-PsiMax))
-            PsiH = -PsiMax;
-        antiwindupARC = KAUW * (PsiH - PsiC);
-        RefH = BetaN - asin(PsiH);
+        if (arc_psi_c > psi_max)
+            psi_h = psi_max;
+        if (arc_psi_c < (-psi_max))
+            psi_h = -psi_max;
+        antiwindup_arc = kauw * (psi_h - arc_psi_c);
+        ref_h = beta_n - asin(psi_h);
 
-        desired_heading = RefH * RAD_2_DEG;
+        desired_heading = ref_h * RAD_2_DEG;
         if (desired_heading < 0) desired_heading = 360 - fabs(desired_heading);
     }
     return false;
+}
+
 }

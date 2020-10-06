@@ -56,31 +56,31 @@ void sensorsStatusCallback(const cbot_ros_msgs::SensorsStatus::ConstPtr& msg)
 void checkSafety(){
     if(fabs(roll)>maxRoll){
         ROS_WARN("[SAFETY NODE] ROLL ANGLE REACHED LIMIT \n TURNING OFF THRUSTERS");
-        ros::param::set("/HIL_ON",0);
+        ros::param::set("/thrusters_on",0);
     }
     if(fabs(pitch)>maxPitch){
         ROS_WARN("[SAFETY NODE] PITCH ANGLE REACHED LIMIT \n TURNING OFF THRUSTERS");
-        ros::param::set("/HIL_ON",0);
+        ros::param::set("/thrusters_on",0);
     }
     if(fabs(speed)>maxVelocity){
         ROS_WARN("[SAFETY NODE] VELOCITY REACHED LIMIT \n TURNING OFF THRUSTERS");
-        ros::param::set("/HIL_ON",0);
+        ros::param::set("/thrusters_on",0);
     }
     if(fabs(depth)>maxDepth){
         ROS_WARN("[SAFETY NODE] DEPTH REACHED LIMIT \n TURNING OFF THRUSTERS");
-        ros::param::set("/HIL_ON",0);
+        ros::param::set("/thrusters_on",0);
     }
 }
 
 void timerCallback(const ros::TimerEvent& event){
-    if(ros::param::has("MaxVelocity"))
-        ros::param::get("MaxVelocity",maxVelocity);
-    if(ros::param::has("MaxDepth"))
-        ros::param::get("MaxDepth",maxDepth);
-    if(ros::param::has("MaxPitch"))
-        ros::param::get("MaxPitch",maxPitch);
-    if(ros::param::has("MaxRoll"))
-        ros::param::get("MaxRoll",maxRoll);
+    if(ros::param::has("max_velocity"))
+        ros::param::get("max_velocity",maxVelocity);
+    if(ros::param::has("max_depth"))
+        ros::param::get("max_depth",maxDepth);
+    if(ros::param::has("max_pitch"))
+        ros::param::get("max_pitch",maxPitch);
+    if(ros::param::has("max_roll"))
+        ros::param::get("max_roll",maxRoll);
 
     checkSafety();
 }

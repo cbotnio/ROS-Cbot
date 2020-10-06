@@ -1,33 +1,27 @@
 #include "cbot_control/controllers.hpp"
 
-double CONTROLLERS::prev_yaw = 0.0;
-double CONTROLLERS::prev_yawRate = 0.0;
-double CONTROLLERS::yawAW = 0.0;
-double CONTROLLERS::yawOut = 0.0;
+namespace cbot_control {
 
-double CONTROLLERS::prev_pitch = 0.0;
-double CONTROLLERS::prev_pitchRate = 0.0;
-double CONTROLLERS::pitchAW = 0.0;
-double CONTROLLERS::pitchOut = 0.0;
-
-double CONTROLLERS::err3Y = 0.0;
-double CONTROLLERS::UY = 0.0;
-double CONTROLLERS::int_depth_err = 0.0;
-double CONTROLLERS::int_u_err = 0.0;
-
-float CONTROLLERS::lqr_yaw(double desired_heading, double yaw, double yawRate, double Ts)
+Controllers::Controllers(const ros::NodeHandle& nh,const ros::NodeHandle& private_nh)
+    :nh_(nh),
+     private_nh_(private_nh),
+     initialized_parameters_(false)
 {
-    double kyaw, kr, ki, kaw, yawSaturation;
-    ros::param::getCached("yaw_lqr_kyaw",kyaw);
-    ros::param::getCached("yaw_lqr_kr",kr);
-    ros::param::getCached("yaw_lqr_ki",ki);
-    ros::param::getCached("yaw_lqr_kaw",kaw);
-    ros::param::getCached("yawSaturation",yawSaturation);
-    double err1, err2, delta, prev_yaw, prev_yawRate, yawAW, yawOut;
-    prev_yaw = CONTROLLERS::prev_yaw;  
-    prev_yawRate = CONTROLLERS::prev_yawRate;
-    yawAW = CONTROLLERS::yawAW;
-    yawOut = CONTROLLERS::yawOut;
+    initializeParameters();
+}
+
+Controllers::~Controllers(){}
+
+void Controllers::initializeParameters(){
+    // Incase there are any others parameters to be added which are not on the dynamic_reconfigure server.
+    initialized_parameters_ = true;
+}
+
+double Controllers::lqrYaw(double desired_heading, double yaw, double yaw_rate, double Ts){
+
+    assert(initialized_parameters_==true);
+
+    double err1, err2, delta;
 
     //choose the smaller angle for rotation
     if (yaw < 0) yaw = 360 - fabs(yaw);
@@ -43,45 +37,34 @@ float CONTROLLERS::lqr_yaw(double desired_heading, double yaw, double yawRate, d
     else if (Psidot < -180) 
         Psidot = 360 + Psidot;
 
-    Psidot = Psidot*kyaw;
+    Psidot = Psidot*yaw_k;
 
-    double Psidotdot = (yawRate - prev_yawRate)*kr;
+    double Psidotdot = (yaw_rate - prev_yaw_rate)*yaw_kr;
     double feedback = (Psidot + Psidotdot)/Ts;
-    CONTROLLERS::prev_yaw = yaw;
-    CONTROLLERS::prev_yawRate = yawRate;
-    err2 = ki*err1 - feedback;
+    prev_yaw = yaw;
+    prev_yaw_rate = yaw_rate;
+    err2 = yaw_ki*err1 - feedback;
 
     //Anti-windup
-    double Udot = err2 - yawAW;
-    CONTROLLERS::yawOut = yawOut + Udot*Ts;
+    double udot = err2 - yaw_aw;
+    yaw_out = yaw_out + udot*Ts;
 
     // Apply output saturations
-    delta = CONTROLLERS::yawOut; 
-    if (delta > yawSaturation)  delta = yawSaturation;
-    if (delta < -yawSaturation) delta = -yawSaturation;
+    delta = yaw_out; 
+    if (delta > yaw_dm_saturation)  delta = yaw_dm_saturation;
+    else if (delta < -yaw_dm_saturation) delta = -yaw_dm_saturation;
 
     //Update Anti windup
-    CONTROLLERS::yawAW = kaw*(CONTROLLERS::yawOut - delta);
+    yaw_aw = yaw_kaw*(yaw_out - delta);
 
     return delta;
 }
 
-double CONTROLLERS::lqr_pitch(double desired_pitch, double pitch, double pitchRate, double Ts)
-{
-	double kpitch, kr, ki, kaw, pitchSaturation;
-    double prev_pitch, prev_pitchRate, pitchAW, pitchOut;
+double Controllers::lqrPitch(double desired_pitch, double pitch, double pitch_rate, double Ts){
+
+    assert(initialized_parameters_==true);
+
     double err1, err2, delta;
-
-    ros::param::getCached("pitch_lqr_kyaw",kpitch);
-    ros::param::getCached("pitch_lqr_kr",kr);
-    ros::param::getCached("pitch_lqr_ki",ki);
-    ros::param::getCached("pitch_lqr_kaw",kaw);
-    ros::param::getCached("pitchSaturation",pitchSaturation);
-
-    prev_pitch = CONTROLLERS::prev_pitch;
-    prev_pitchRate = CONTROLLERS::prev_pitchRate;
-    pitchAW = CONTROLLERS::pitchAW;
-    pitchOut = CONTROLLERS::pitchOut;
 
     //choose the smaller angle for rotation
     if (pitch < 0) pitch = 360 - fabs(pitch);
@@ -97,55 +80,57 @@ double CONTROLLERS::lqr_pitch(double desired_pitch, double pitch, double pitchRa
     else if (Thetadot < -180)
         Thetadot = 360 + Thetadot;
 
-    Thetadot = Thetadot*kpitch;
+    Thetadot = Thetadot*pitch_k;
 
-    double Thetadotdot = (pitchRate - prev_pitchRate)*kr;
+    double Thetadotdot = (pitch_rate - prev_pitch_rate)*pitch_kr;
     double feedback = (Thetadot + Thetadotdot)/Ts;
-    CONTROLLERS::prev_pitch = pitch;
-    CONTROLLERS::prev_pitchRate = pitchRate;
-    err2 = ki*err1 - feedback;
+    prev_pitch = pitch;
+    prev_pitch_rate = pitch_rate;
+    err2 = pitch_ki*err1 - feedback;
 
     //Anti-windup
-    double Udot = err2 - pitchAW;
-    CONTROLLERS::pitchOut = pitchOut + Udot*Ts;
+    double udot = err2 - pitch_aw;
+    pitch_out = pitch_out + udot*Ts;
 
     // Apply output saturations
-    delta = CONTROLLERS::pitchOut; 
-    if (delta > pitchSaturation)  delta = pitchSaturation;
-    if (delta < -pitchSaturation) delta = -pitchSaturation;
+    delta = pitch_out; 
+    if (delta > pitch_dm_saturation)  delta = pitch_dm_saturation;
+    if (delta < -pitch_dm_saturation) delta = -pitch_dm_saturation;
 
     //Update Anti windup
-    CONTROLLERS::pitchAW = kaw*(CONTROLLERS::pitchOut - delta);
+    pitch_aw = pitch_kaw*(pitch_out - delta);
 
     return delta;
 }
 
-double CONTROLLERS::depth(double desired_depth, double depth, double Ts)
-{
-	double Kp, Ki, depthSaturation ,err, depthCM;
-	ros::param::getCached("depth_K",Kp);
-    ros::param::getCached("depth_Ki",Ki);
-    ros::param::getCached("depthSaturation",depthSaturation);
-    err = desired_depth - depth;
-    CONTROLLERS::int_depth_err = CONTROLLERS::int_depth_err + err*Ts;
-    depthCM = Kp*err + Ki*CONTROLLERS::int_depth_err;
+double Controllers::depth(double desired_depth, double depth, double Ts){
 
-    if(fabs(depthCM) > depthSaturation){
-        depthCM = depthSaturation*depthCM/fabs(depthCM);
-        CONTROLLERS::int_depth_err = CONTROLLERS::int_depth_err - err*Ts;
+    assert(initialized_parameters_==true);
+
+    double err = desired_depth - depth;
+    int_depth_err = int_depth_err + err*Ts;
+    double depth_cm = depth_k*err + depth_ki*int_depth_err;
+
+    if(fabs(depth_cm) > depth_cm_saturation){
+        depth_cm = depth_cm_saturation*depth_cm/fabs(depth_cm);
+        int_depth_err = int_depth_err - err*Ts;
     }
 
-    printf("int_depth_err: %f | depthCM: %f\n",CONTROLLERS::int_depth_err,-depthCM);
-    return -depthCM;
+    return -depth_cm;
 }
 
-float CONTROLLERS::velocity(double desired_u,double u,double Ts){
-    double err = desired_u - u;
-    double yawcm = 40*err + 20*int_u_err;
+double Controllers::velocity(double desired_u,double u,double Ts){
+    
+    assert(initialized_parameters_==true);
 
-    if(fabs(yawcm)<=60)
+    double err = desired_u - u;
+    double yaw_cm = speed_k*err + speed_ki*int_u_err;
+
+    if(fabs(yaw_cm)<=speed_cm_saturation)
         int_u_err = int_u_err + err*Ts;
     else
-        yawcm = yawcm/fabs(yawcm)*60;
-    return yawcm;
+        yaw_cm = yaw_cm/fabs(yaw_cm)*speed_cm_saturation;
+    return yaw_cm;
 }
+
+} // end cbot_control namespace

@@ -1,3 +1,6 @@
+#ifndef UTM_H
+#define UTM_H
+
 #include "ros/ros.h"
 #include <math.h>
 #include <stdio.h>
@@ -25,3 +28,5 @@ class UTM
         static void UTMtoLL(int ReferenceEllipsoid, const double UTMNorthing, const double UTMEasting, const char* UTMZone,  double* Lat,  double* Long );
         static char UTMLetterDesignator(double Lat);
 };
+
+#endif
