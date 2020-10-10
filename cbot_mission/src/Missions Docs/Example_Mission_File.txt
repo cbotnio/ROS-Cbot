@@ -1,0 +1,217 @@
+lfw LFW1
+	position1: (15.4507,73.8041)
+	position2: (15.4512,73.8041)
+	speed: 0.5
+	timeout: 10000
+end
+
+lfw LFW2
+	position1: (15.4512,73.8041)
+	position2: (15.4508,73.8045)
+	speed: 0.5
+	timeout: 10000
+end
+
+lfw LFW3
+	position1: (15.4508,73.8045)
+	position2: (15.4508,73.8053)
+	speed: 0.5
+	timeout: 10000
+end
+
+wpt WPT1
+	position: (15.4505,73.804)
+	speed:0.2
+	heading: 0
+	captureRadius:0
+	slipRadius:0 
+	timeout: 1
+end
+
+loiter LT1
+	vars:
+		timeout: 20
+	end
+
+	wpt WPTn
+		position: (15.4505,73.804)
+		speed:0.2
+		heading: 0
+		captureRadius:0
+		slipRadius:0 
+		timeout: 1
+	end
+
+	loiter LT2
+		vars:
+			timeout: 15
+		end
+
+		wpt WPTn2
+			position: (15.4505,73.804)
+			speed:0.2
+			heading: 0
+			captureRadius:0
+			slipRadius:0 
+			timeout: 1
+		end
+
+		loiter LT3
+			vars:
+				timeout: 5
+			end
+
+			wpt WPTL3
+				position:(15.4505,73.804)
+				speed:0.2
+				heading: 0
+				captureRadius:0
+				slipRadius:0
+				timeout:2
+			end
+		end
+		wpt WPTL1
+			position:(15.4505,73.804)
+			speed:0
+			heading: 0
+			captureRadius: 0
+			slipRadius: 0
+			timeout:3
+		end
+	end
+end
+
+wpt WPT2
+	position: (15.4505,73.804)
+	speed:2
+	heading: 0
+	captureRadius:0
+	slipRadius:0 
+	timeout: 100
+end
+
+dock DOCK1
+	position: (15.4505,73.804)
+	heading: out
+end
+
+constDepth CD1
+	vars:
+		depth: 1
+	end
+	dock DOCK1
+		position: (15.4505,73.804)
+		heading: 0
+	end
+
+	constHeading HD1
+		vars:
+			heading: 90
+		end
+
+		DOCK1
+
+		constHeading HD2
+		vars:
+			heading: 45
+		end		
+		 LFW1
+		end
+	end
+end
+
+constPitch CP1
+	vars:
+		pitch: 10
+	end
+
+	LFW1
+end
+
+
+
+constHeading
+	vars
+		heading: 20
+	end
+
+	wpt
+		...
+	end
+	
+	lfw
+		...
+	end
+	... 
+end
+
+constPitch
+	vars
+		pitch:
+	end
+
+	wpt
+	end
+	
+	lfw
+	end
+	... 
+end
+
+constSpeed
+	vars
+		speed:
+	end
+
+	wpt
+	end
+
+	lft
+	end
+	...
+	timeout:	
+end
+
+loiter
+	wpt:
+	end
+	
+	wpt:
+	end
+	
+	lfw:
+	end
+
+	stkp:
+	end
+	....
+	timeout: 
+end
+
+loiter
+		
+	constDept
+		vars
+			depth: 
+		end
+		constHeading
+			vars
+				heading:
+			end
+			
+			wpt
+			end
+
+			wpt
+			end
+			
+			lfw
+			end
+
+			...
+		end
+	end
+	timeout: 
+end
+
+END

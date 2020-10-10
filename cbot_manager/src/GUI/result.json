@@ -1,43 +1,81 @@
 {
     "Safety": {
-        "maxPitch": "15",
-        "maxDepth": "10"
+        "maxDepth": "10",
+        "maxPitch": "15"
+    },
+    "BHVNameTable": {},
+    "GuidanceNameTable": {
+        "L4": {
+            "type": "lfw",
+            "data": {
+                "timeout": "10000",
+                "speed": "0.5",
+                "position1": "(15.4507,73.8044)",
+                "position2": "(15.4507, 73.8047)"
+            }
+        },
+        "L3": {
+            "type": "lfw",
+            "data": {
+                "timeout": "10000",
+                "speed": "0.5",
+                "position1": "(15.4515,73.8044)",
+                "position2": "(15.4507, 73.8044)"
+            }
+        },
+        "L2": {
+            "type": "lfw",
+            "data": {
+                "timeout": "10000",
+                "speed": "0.5",
+                "position1": "(15.4515,73.8041)",
+                "position2": "(15.4515, 73.8044)"
+            }
+        },
+        "L5": {
+            "type": "lfw",
+            "data": {
+                "timeout": "10000",
+                "speed": "0.5",
+                "position1": "(15.4507,73.8047)",
+                "position2": "(15.4515, 73.8047)"
+            }
+        },
+        "L1": {
+            "type": "lfw",
+            "data": {
+                "timeout": "10000",
+                "speed": "0.5",
+                "position1": "(15.4507,73.8041)",
+                "position2": "(15.4515, 73.8041)"
+            }
+        }
     },
     "Missions": {
-        "M1": {
-            "names": [
-                "Home"
-            ]
-        },
         "M2": {
             "names": [
-                "Home2"
+                "L2"
+            ]
+        },
+        "M4": {
+            "names": [
+                "L4"
+            ]
+        },
+        "M1": {
+            "names": [
+                "L1"
+            ]
+        },
+        "M3": {
+            "names": [
+                "L3"
+            ]
+        },
+        "M5": {
+            "names": [
+                "L5"
             ]
         }
-    },
-    "GuidanceNameTable": {
-        "Home": {
-            "type": "wpt",
-            "data": {
-                "captureRadius": "0",
-                "timeout": "20",
-                "slipRadius": "0",
-                "position": "(15.4507,73.8041)",
-                "speed": "0.5",
-                "heading": "0"
-            }
-        },
-        "Home2": {
-            "type": "wpt",
-            "data": {
-                "captureRadius": "0",
-                "timeout": "20",
-                "slipRadius": "0",
-                "position": "(15.4508,73.8041)",
-                "speed": "0.5",
-                "heading": "0"
-            }
-        }
-    },
-    "BHVNameTable": {}
+    }
 }

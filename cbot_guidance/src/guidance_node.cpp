@@ -20,7 +20,7 @@ void GuidanceNode::initializeParameters(){
     f = boost::bind(&GuidanceNode::DynConfigCallback, this, _1, _2);
     dyn_config_server_.setCallback(f);
 
-    guidance_mode = 0;
+    // guidance_mode = 0;
     guidance_inputs_server = nh_.advertiseService("guidance_inputs", &GuidanceNode::guidanceInputsCallback, this);
     controller_inputs_client = nh_.serviceClient<cbot_ros_msgs::ControllerInputs>("controller_inputs");
     
@@ -51,6 +51,7 @@ bool GuidanceNode::guidanceInputsCallback(cbot_ros_msgs::GuidanceInputs::Request
     printf("New Goal\n");
     
     guidance_mode = req.guidance_mode;
+    printf("Guidancce Mode: %d\n",guidance_mode );
     UTM::LLtoUTM(23, req.desired_pos_x1, req.desired_pos_y1, &desired_pos_x1, &desired_pos_y1, Zone);
     UTM::LLtoUTM(23, req.desired_pos_x2, req.desired_pos_y2, &desired_pos_x2, &desired_pos_y2, Zone);
     

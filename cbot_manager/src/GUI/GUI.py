@@ -2,11 +2,13 @@
 import PySimpleGUI as sg
 import serial, time, re, json, threading, datetime
 import MissionCompiler, kmlCompiler
+import genKml
 
 serialPortName = "/tmp/GUI-write"
 serialBaudrate = 9600
 
-# ser = serial.Serial(port=serialPortName,baudrate=serialBaudrate,writeTimeout=0.1,timeout=0.01,rtscts=True,dsrdtr=True)
+genKml.copyData()
+
 ser = serial.Serial()
 boatGPSser = serial.Serial()
 
@@ -176,16 +178,25 @@ window = sg.Window("CBOT Control", layout)
 
 def updateStatus(ser):
   global window, MEDheartbeatCount, MEDlastHeartbeat, firstConnectionFlag
+  lat = 0.0
+  lon = 0.0
+  depth = 0.00
   if(isSerOpen(ser)==1):
     readData = ser.readline().decode().strip().split(',')
-    if(readData[0]=="MED"):
+    if(readData[0]=="$CBOT"):
       for param in readData[1:]:
         param = param.split(':')
         try:
           if(param[0]!=""):
             window.Element(param[0].strip()).Update(param[1])
+            if(param[0]=="Latitude"):
+              lat = float(param[1])
+            elif(param[0]=="Longitude"):
+              lon = param[1]
+
         except:
           pass
+      genKml.addNewPoint(lat,lon,depth)
       firstConnectionFlag = 1
       MEDlastHeartbeat = time.time()
       MEDheartbeatCount = 5

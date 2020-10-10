@@ -3,23 +3,41 @@ Safety
 	maxPitch: 15
 end
 
-wpt Home
-	position: (15.4507,73.8041)
+lfw L1
+	position1: (15.4507,73.8041)
+	position2: (15.4515, 73.8041)
 	speed:0.5
-	heading: 0
-	captureRadius:0
-	slipRadius:0
-	timeout: 20
+	timeout: 10000
 end
 
-wpt Home2
-	position: (15.4508,73.8041)
+lfw L2
+	position1: (15.4515,73.8041)
+	position2: (15.4515, 73.8044)
 	speed:0.5
-	heading: 0
-	captureRadius:0
-	slipRadius:0
-	timeout: 20
+	timeout: 10000
 end
+
+lfw L3
+	position1: (15.4515,73.8044)
+	position2: (15.4507, 73.8044)
+	speed:0.5
+	timeout: 10000
+end
+
+lfw L4
+	position1: (15.4507,73.8044)
+	position2: (15.4507, 73.8047)
+	speed:0.5
+	timeout: 10000
+end
+
+lfw L5
+	position1: (15.4507,73.8047)
+	position2: (15.4515, 73.8047)
+	speed:0.5
+	timeout: 10000
+end
+
 
 END
 

@@ -1,0 +1,38 @@
+Waypoint Guidance
+	pos: (X,Y) meter
+	depth: Z meter
+	pitch: <optional>
+	heading: <optional>
+	caputureRadius: <default:1 meter>
+	slipRadius: <default:2 meter>
+	timeout: in seconds
+
+Line Follow Guidance
+	pos1: (X1,Y1) meter
+	pos2: (X2,Y2) meter
+	depth: Z meter
+	speed: <default: 0.5m/s>
+	pitch: <optional>
+	heading: <optional>
+	captureRadius: <default:1 meter>
+	timeout: in seconds
+
+Arc Follow Guidance
+	pos1: (X1,Y1)
+	pos2: (X2,Y2)
+	radius: in meter
+	direction: clockwise/anticlockwise
+	start: nearest/{position} <default: nearest>
+	heading: <optional>
+	depth: <optional>
+	pitch: <optional>
+	timeout: in seconds
+
+Docking Guidance:
+	pos: (X,Y) meter
+	depth: Z meter
+	heading: 
+	runway: in meter <default: 1 meter>
+	type: vision/
+	pitch: <optional>
+	timeout: in seconds

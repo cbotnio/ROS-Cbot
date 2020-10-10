@@ -137,7 +137,6 @@ void ControllersNode::timerCallback(const ros::TimerEvent& event)
         temp.request.diff_mode_F = differential_mode_F;
         temp.request.comm_mode_V = common_mode_V;
         temp.request.diff_mode_V = differential_mode_V;
-        temp.request.update = 1;
         
         if (ros::service::call("thruster_control", temp))
         {
@@ -150,7 +149,6 @@ void ControllersNode::timerCallback(const ros::TimerEvent& event)
         temp.request.diff_mode_F = 0;
         temp.request.comm_mode_V = 0;
         temp.request.diff_mode_V = 0;
-        temp.request.update = 1;
     }
 }
 

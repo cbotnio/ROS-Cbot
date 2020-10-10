@@ -8,7 +8,6 @@ add_message_files(
   FILES
   AHRS.msg
   GPS.msg
-  ThrusterData.msg
 )
 
 add_message_files(
@@ -24,8 +23,9 @@ add_service_files(
   ControllerInputs.srv
   GuidanceInputs.srv
   ControllerSettings.srv
-  ThrusterControl.srv
   MissInputs.srv
+  ThrusterInputs.srv
+  ThrusterCMDM.srv
 )
 
 

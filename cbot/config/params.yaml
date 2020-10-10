@@ -9,7 +9,7 @@ ahrs_port: "/tmp/ahrs-read"
 ahrs_baudrate: B115200
 ahrs_status: 1
 
-thrusters_port: "/tmp/thr-read"
+thrusters_port: "/tmp/thr-write"
 thrusters_baudrate: B9600
 
 guidance_on: 1
@@ -17,4 +17,3 @@ thrusters_on: 1
 
 mode: "AUV"
 status: "Drive"
-

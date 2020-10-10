@@ -77,21 +77,25 @@ def addData(message,MissionType):
 	positionCount = 1
 	for key in message.keys():
 		try:
-			# print(key)
-			if("position" in key):
-				guidanceInputs["X"+str(positionCount)] = message[key][1:-1].split(',')[0]
-				guidanceInputs["Y"+str(positionCount)] = message[key][1:-1].split(',')[1]
+			print(key)
+			if(key == "position1" or key=="position"):
+				guidanceInputs["X1"] = message[key][1:-1].split(',')[0]
+				guidanceInputs["Y1"] = message[key][1:-1].split(',')[1]
 				positionCount+=1
-				# print("/////////////////")
-				# print(message[key][1:-1].split(',')[0])
-				# print("/////////////////")
+			elif(key == "position2"):
+				guidanceInputs["X2"] = message[key][1:-1].split(',')[0]
+				guidanceInputs["Y2"] = message[key][1:-1].split(',')[1]
+				positionCount+=1
 			elif(key == "mode"):
 				guidanceInputs[key] = modeTable[MissionType]
+				print("####### Mission Type: " + str(MissionType))
+				print("####### Mission Type: " + str(key))
 			else:
 				guidanceInputs[key] = message[key]
 		except:
 			print("could not set key: ", key)
 			guidanceInputs[key] = guidanceInputsDefault[key]
+	guidanceInputs["mode"] = modeTable[MissionType]
 
 def sendMission():
 	global guidanceInputs,timeout
@@ -125,19 +129,16 @@ def  checkStatus():
 	# Add all check conditions like pause and perform 
 	if(rospy.get_param('mode').lower()=="auv" and rospy.get_param('status').lower()=="drive"):
 		stopMissionFlag = 0
-		# rospy.set_param("/HIL_ON",1)
 		return 1
 	elif(rospy.get_param('status').lower()=="park"):
 		try:
 			updateTimeout(startTime,timeout)
 		except:
 			pass
-		# rospy.set_param("/HIL_ON",0)
 		stopMissionFlag = 0
 		return 2
 	elif(rospy.get_param('status').lower()=="stop"):
 		stopMissionFlag = 1
-		# rospy.set_param("/HIL_ON",0)
 		return 3
 
 
