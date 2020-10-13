@@ -13,7 +13,7 @@
 #include "cbot_ros_msgs/AHRS.h"
 #include "nav_msgs/Odometry.h"
 #include "cbot_ros_msgs/ControllerSettings.h"
-#include "cbot_ros_msgs/ThrusterControl.h"
+#include "cbot_ros_msgs/ThrusterCMDM.h"
 #include "cbot_ros_msgs/ControllerInputs.h"
 #include "cbot_control/controllers.hpp"
 
@@ -44,8 +44,8 @@ class ControllersNode{
         dynamic_reconfigure::Server<cbot_control::ControllersConfig> dyn_config_server_;
         void DynConfigCallback(cbot_control::ControllersConfig &config, uint32_t level);
 
-        ros::ServiceServer controller_inputs_server;
-        ros::ServiceClient thruster_control_client;
+        ros::Publisher thruster_cmdm_pub;
+        ros::Subscriber controller_inputs_sub;
         ros::Subscriber ahrs_sub;
         ros::Subscriber pose_sub;
         ros::Timer timer;
@@ -56,7 +56,8 @@ class ControllersNode{
         
         double getBodyVel();
         
-        bool controllerInputsCallback(cbot_ros_msgs::ControllerInputs::Request &req, cbot_ros_msgs::ControllerInputs::Response &res);
+        void controllerInputsCallback(const cbot_ros_msgs::ControllerInputs::ConstPtr& msg);
+        
         void timerCallback(const ros::TimerEvent& event);
 
 

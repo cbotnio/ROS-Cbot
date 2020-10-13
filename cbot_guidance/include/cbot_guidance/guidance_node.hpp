@@ -16,7 +16,7 @@
 //dynamic reconfiguration
 #include <dynamic_reconfigure/server.h>
 #include <cbot_guidance/GuidanceConfig.h>
-#include <dynamic_reconfigure/DoubleParameter.h>
+#include <dynamic_reconfigure/IntParameter.h>
 #include <dynamic_reconfigure/Reconfigure.h>
 #include <dynamic_reconfigure/Config.h>
 
@@ -41,9 +41,12 @@ class GuidanceNode {
         void DynConfigCallback(cbot_guidance::GuidanceConfig &config, uint32_t level);
 
         ros::ServiceServer guidance_inputs_server;
-        ros::ServiceClient controller_inputs_client;
+
+        ros::Publisher controller_inputs_pub;
         ros::Publisher guidance_status_pub;
+        
         ros::Subscriber ahrs_sub;
+        
         ros::Timer timer;
 
         dynamic_reconfigure::ReconfigureRequest srv_req;
@@ -66,8 +69,13 @@ class GuidanceNode {
         double desired_pos_x1,desired_pos_y1,desired_pos_x2,desired_pos_y2;
         double desired_heading, desired_thrust, nominal_velocity, desired_pitch;
         
+        //Flag to be used for sending the 0 control inputs only once when guidance is turned off. 
+        //This removes control from guidance and allows user to directly change controller inputs
+        int flag;
+        int parameter_flag;
+
         bool guidance_status;
-        int guidance_mode,flag=0;
+        int guidance_mode;
         char Zone[20];
 };
 

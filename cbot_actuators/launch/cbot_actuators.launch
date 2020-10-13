@@ -1,5 +1,4 @@
 <?xml version="1.0"?>
 <launch>
     <node name="thruster_node" pkg="cbot_actuators" type="thruster_node" respawn="true" output="screen"/>
-    <node name="thruster_serial" pkg="cbot_actuators" type="thruster_serial" respawn="true" output="screen"/>
 </launch>

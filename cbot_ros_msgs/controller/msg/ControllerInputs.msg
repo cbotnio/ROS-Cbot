@@ -1,0 +1,5 @@
+float32 desired_heading
+float32 desired_thrust
+float32 desired_pitch
+float32 desired_depth
+float32 desired_u

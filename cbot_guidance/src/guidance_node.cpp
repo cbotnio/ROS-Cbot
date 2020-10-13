@@ -22,7 +22,7 @@ void GuidanceNode::initializeParameters(){
 
     // guidance_mode = 0;
     guidance_inputs_server = nh_.advertiseService("guidance_inputs", &GuidanceNode::guidanceInputsCallback, this);
-    controller_inputs_client = nh_.serviceClient<cbot_ros_msgs::ControllerInputs>("controller_inputs");
+    controller_inputs_pub = nh_.advertise<cbot_ros_msgs::ControllerInputs>("controller_inputs",1);
     
     ahrs_sub = nh_.subscribe("/position", 1, &GuidanceNode::navigationCallback, this);
     guidance_status_pub = nh_.advertise<std_msgs::Bool>("/guidanceStatus", 1);
@@ -65,6 +65,8 @@ bool GuidanceNode::guidanceInputsCallback(cbot_ros_msgs::GuidanceInputs::Request
     nominal_velocity = req.nominal_velocity;
 
     res.update_inputs = true;
+
+    parameter_flag = 0;
 }
 
 void GuidanceNode::timerCallback(const ros::TimerEvent& event)
@@ -75,26 +77,33 @@ void GuidanceNode::timerCallback(const ros::TimerEvent& event)
         flag=0;
         
         if(guidance_mode == 0){
-            dynamic_reconfigure::Config conf;
-            int_param.name = "heading_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
-            int_param.name = "pitch_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
-            int_param.name = "speed_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
-            int_param.name = "depth_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
-            srv_req.config = conf;
-            ros::service::call("/control_node/set_parameters", srv_req, srv_resp);
+            if(parameter_flag==0)
+            {       
+                dynamic_reconfigure::Config conf;
+                int_param.name = "heading_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
+                int_param.name = "pitch_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
+                int_param.name = "speed_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
+                int_param.name = "depth_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
+                srv_req.config = conf;
+                ros::service::call("/control_node/set_parameters", srv_req, srv_resp);
+                parameter_flag==1;
+            }
             
             guidance_status = guidance_.WayPtGuidance(vehicle_pos_x, vehicle_pos_y);
         }
         
         else if(guidance_mode == 1){
-            dynamic_reconfigure::Config conf;
-            int_param.name = "heading_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
-            int_param.name = "pitch_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
-            int_param.name = "speed_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
-            int_param.name = "depth_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
-            srv_req.config = conf;
-            ros::service::call("/control_node/set_parameters", srv_req, srv_resp);
-            
+            if(parameter_flag==0)
+            {   
+                dynamic_reconfigure::Config conf;
+                int_param.name = "heading_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
+                int_param.name = "pitch_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
+                int_param.name = "speed_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
+                int_param.name = "depth_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
+                srv_req.config = conf;
+                ros::service::call("/control_node/set_parameters", srv_req, srv_resp);
+                parameter_flag=1;
+            }
             guidance_status = guidance_.LineFollowGuidance(vehicle_pos_x, vehicle_pos_y, 1);
         }
         
@@ -102,14 +111,18 @@ void GuidanceNode::timerCallback(const ros::TimerEvent& event)
             guidance_status = guidance_.ArcFollowGuidance(vehicle_pos_x, vehicle_pos_y);  // To be completed
         
         else if(guidance_mode == 3){
-            dynamic_reconfigure::Config conf;
-            int_param.name = "heading_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
-            int_param.name = "pitch_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
-            int_param.name = "speed_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
-            int_param.name = "depth_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
-            srv_req.config = conf;
-            ros::service::call("/control_node/set_parameters",srv_req, srv_resp);
-
+            if(parameter_flag==0)
+            {
+                dynamic_reconfigure::Config conf;
+                int_param.name = "heading_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
+                int_param.name = "pitch_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
+                int_param.name = "speed_ctrl"; int_param.value = 1; conf.ints.push_back(int_param);
+                int_param.name = "depth_ctrl"; int_param.value = 0; conf.ints.push_back(int_param);
+                srv_req.config = conf;
+                ros::service::call("/control_node/set_parameters",srv_req, srv_resp);
+                parameter_flag = 1;
+            }
+            
             guidance_status = guidance_.StKpGuidance(vehicle_pos_x, vehicle_pos_y);
             nominal_velocity = guidance_.getDesiredSpeed();
         }
@@ -122,24 +135,22 @@ void GuidanceNode::timerCallback(const ros::TimerEvent& event)
         reached.data = (guidance_status)?true:false;
         guidance_status_pub.publish(reached);
 
-        cbot_ros_msgs::ControllerInputs temp;
-        temp.request.desired_heading = guidance_.getDesiredHeading();
-        temp.request.desired_u = nominal_velocity;
-        temp.request.desired_pitch = 0;
-        temp.request.desired_depth = 1;
+        cbot_ros_msgs::ControllerInputs control_inputs;
+        control_inputs.desired_heading = guidance_.getDesiredHeading();
+        control_inputs.desired_u = nominal_velocity;
+        control_inputs.desired_pitch = 0;
+        control_inputs.desired_depth = 1;
         
-        if (ros::service::call("controller_inputs", temp))
-        {
-            // printf("controller service called successfully\n");
-        }
+        controller_inputs_pub.publish(control_inputs);
     }
+
     else if(!guidance_on && flag==0){
         flag=1;
-        cbot_ros_msgs::ControllerInputs temp;
-        temp.request.desired_heading = guidance_.getDesiredHeading();
-        temp.request.desired_u = 0;
+        cbot_ros_msgs::ControllerInputs control_inputs;
+        control_inputs.desired_heading = guidance_.getDesiredHeading();
+        control_inputs.desired_u = 0;
         
-        ros::service::call("controller_inputs", temp);
+        controller_inputs_pub.publish(control_inputs);
     }
 }
 

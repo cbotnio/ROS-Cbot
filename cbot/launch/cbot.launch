@@ -5,8 +5,8 @@
     <include file="$(find cbot_sensors)/launch/cbot_sensors.launch" />
     <include file="$(find cbot_control)/launch/cbot_control.launch" />
     <include file="$(find cbot_guidance)/launch/cbot_guidance.launch" />
-    <include file="$(find cbot_monitoring)/launch/cbot_monitoring.launch" />
+    <!-- <include file="$(find cbot_monitoring)/launch/cbot_monitoring.launch" /> -->
     <include file="$(find cbot_navigation)/launch/cbot_navigation.launch" />
-    <include file="$(find cbot_manager)/launch/cbot_manager.launch" />
-    <include file="$(find cbot_mission)/launch/cbot_mission.launch" />
+    <!-- <include file="$(find cbot_manager)/launch/cbot_manager.launch" /> -->
+    <!-- <include file="$(find cbot_mission)/launch/cbot_mission.launch" /> -->
 </launch>

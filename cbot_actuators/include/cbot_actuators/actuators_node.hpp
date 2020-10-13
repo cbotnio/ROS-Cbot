@@ -22,8 +22,8 @@ class ActuatorsNode{
 
 		dynamic_reconfigure::Server<cbot_actuators::ActuatorsConfig> dyn_config_server_;
 
-		ros::ServiceServer thruster_inputs_server;
-		ros::ServiceServer thruster_cmdm_server;
+		ros::Subscriber thruster_cmdm_sub;
+		ros::Subscriber thruster_inputs_sub;
 
 		ros::Timer timer;
 
@@ -42,9 +42,9 @@ class ActuatorsNode{
 
 		void calcT1T2(float comm_mode, float diff_mode, float *T11, float *T22, float *PreT11, float *PreT22, float thrust_saturation);
 		
-		bool thrusterInputsCallback(cbot_ros_msgs::ThrusterInputs::Request &req, cbot_ros_msgs::ThrusterInputs::Response &res);
+		void thrusterInputsCallback(const cbot_ros_msgs::ThrusterInputs::ConstPtr& msg);
 
-		bool thrusterCMDMCallback(cbot_ros_msgs::ThrusterCMDM::Request &req, cbot_ros_msgs::ThrusterCMDM::Response &res);
+		void thrusterCMDMCallback(const cbot_ros_msgs::ThrusterCMDM::ConstPtr& msg);
 		
 		void timerCallbck(const ros::TimerEvent& event);
 

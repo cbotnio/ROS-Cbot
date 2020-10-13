@@ -28,9 +28,9 @@ ActuatorsNode::ActuatorsNode(const ros::NodeHandle nh,const ros::NodeHandle priv
     f = boost::bind(&ActuatorsNode::DynConfigCallback, this, _1, _2);
     dyn_config_server_.setCallback(f);
 
-    // Server to get thruster inputs
-    thruster_cmdm_server = nh_.advertiseService("thruster_cmdm", &ActuatorsNode::thrusterCMDMCallback, this);
-    thruster_inputs_server = nh_.advertiseService("thruster_inputs", &ActuatorsNode::thrusterInputsCallback, this);
+	//Topics to get thruster inputs
+    thruster_cmdm_sub = nh_.subscribe("/thruster_cmdm", 1, &ActuatorsNode::thrusterCMDMCallback, this);
+    thruster_inputs_sub = nh_.subscribe("/thruster_inputs", 1, &ActuatorsNode::thrusterInputsCallback, this);
 
     // Timer callback to write data on serial port
     timer = nh_.createTimer(ros::Duration(0.1),&ActuatorsNode::timerCallbck,this);
@@ -71,27 +71,23 @@ void ActuatorsNode::calcT1T2(float comm_mode, float diff_mode, float *T11, float
     // *T22 = *PreT22;
 }
 
-bool ActuatorsNode::thrusterInputsCallback(cbot_ros_msgs::ThrusterInputs::Request &req, cbot_ros_msgs::ThrusterInputs::Response &res)
+void ActuatorsNode::thrusterInputsCallback(const cbot_ros_msgs::ThrusterInputs::ConstPtr& msg)
 {
-    res.T1 = T1 = req.T1;
-    res.T2 = T2 = req.T2;
-    res.T3 = T3 = req.T3;
-    res.T4 = T4 = req.T4;
-
-    return true;
+    T1 = msg->T1;
+    T2 = msg->T2;
+    T3 = msg->T3;
+    T4 = msg->T4;
 }
 
-bool ActuatorsNode::thrusterCMDMCallback(cbot_ros_msgs::ThrusterCMDM::Request &req, cbot_ros_msgs::ThrusterCMDM::Response &res)
+void ActuatorsNode::thrusterCMDMCallback(const cbot_ros_msgs::ThrusterCMDM::ConstPtr& msg)
 {
-    res.comm_mode_F = comm_mode_F = req.comm_mode_F;
-    res.diff_mode_F = diff_mode_F = req.diff_mode_F;
-    res.comm_mode_V = comm_mode_V = req.comm_mode_V;
-    res.diff_mode_V = diff_mode_V = req.diff_mode_V;
+    comm_mode_F = msg->comm_mode_F;
+    diff_mode_F = msg->diff_mode_F;
+    comm_mode_V = msg->comm_mode_V;
+    diff_mode_V = msg->diff_mode_V;
 
     calcT1T2(comm_mode_F, diff_mode_F, &T1, &T2, &pre_T1, &pre_T2, sat_F);
-    calcT1T2(comm_mode_V, diff_mode_V, &T3, &T4, &pre_T3, &pre_T4, sat_V);
-
-    return true; 
+    calcT1T2(comm_mode_V, diff_mode_V, &T3, &T4, &pre_T3, &pre_T4, sat_V);    
 }
 
 void ActuatorsNode::timerCallbck(const ros::TimerEvent& event)
@@ -114,7 +110,7 @@ void ActuatorsNode::timerCallbck(const ros::TimerEvent& event)
 
 int main(int argc, char *argv[])
 {
-    ros::init(argc, argv, "actuators_node");
+    ros::init(argc, argv, "thruster_node");
     ros::Time::init();
 
     ros::NodeHandle nh, private_nh("~");

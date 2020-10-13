@@ -14,10 +14,10 @@ ControllersNode::ControllersNode(const ros::NodeHandle& nh,const ros::NodeHandle
     dyn_config_server_.setCallback(f);
 
     // Service Server to recieve control commands
-    controller_inputs_server = nh_.advertiseService("controller_inputs", &ControllersNode::controllerInputsCallback,this);
+    controller_inputs_sub = nh_.subscribe("controller_inputs", 1, &ControllersNode::controllerInputsCallback,this);
 
-    // Service Client to send thruster commands
-    thruster_control_client = nh_.serviceClient<cbot_ros_msgs::ThrusterControl>("thruster_control");
+    // Publish thruster data
+    thruster_cmdm_pub = nh_.advertise<cbot_ros_msgs::ThrusterCMDM>("/thruster_cmdm",1);
 
     // Sensor subscribers
     ahrs_sub = nh_.subscribe("AHRS", 1, &ControllersNode::ahrsCallback, this);
@@ -83,19 +83,13 @@ double ControllersNode::getBodyVel()
     return (cos(p)*cos(y)*vx + sin(y)*cos(p)*vy - sin(p)*vz);
 }
 
-bool ControllersNode::controllerInputsCallback(cbot_ros_msgs::ControllerInputs::Request &req, cbot_ros_msgs::ControllerInputs::Response &res)
+void ControllersNode::controllerInputsCallback(const cbot_ros_msgs::ControllerInputs::ConstPtr& msg)
 {
-    desired_heading = req.desired_heading;
-    desired_thrust = req.desired_thrust;
-    desired_pitch = req.desired_pitch;  
-    desired_depth = req.desired_depth;
-    desired_u = req.desired_u;
-    res.desired_heading = desired_heading;
-    res.desired_thrust = desired_thrust;
-    res.desired_pitch = desired_pitch;
-    res.desired_depth = desired_depth;
-    res.desired_u = desired_u;
-    return true;
+    desired_heading = msg->desired_heading;
+    desired_thrust = msg->desired_thrust;
+    desired_pitch = msg->desired_pitch;  
+    desired_depth = msg->desired_depth;
+    desired_u = msg->desired_u;
 }
 
 
@@ -103,52 +97,45 @@ void ControllersNode::timerCallback(const ros::TimerEvent& event)
 {
 	if(controller_on)
     {
+        cbot_ros_msgs::ThrusterCMDM thr_inputs;
         flag=0;
         double u = getBodyVel();
         // Heading Control
         if(heading_ctrl_on)
-            differential_mode_F = controllers_.lqrYaw(desired_heading, yaw, yaw_rate, 0.1);
+            thr_inputs.diff_mode_F = controllers_.lqrYaw(desired_heading, yaw, yaw_rate, 0.1);
         else
-            differential_mode_F = 0;
+            thr_inputs.diff_mode_F = 0;
 
         // Pitch Control
         if(pitch_ctrl_on)
-            differential_mode_V = controllers_.lqrPitch(desired_pitch, pitch, pitch_rate, 0.1);
+            thr_inputs.diff_mode_V = controllers_.lqrPitch(desired_pitch, pitch, pitch_rate, 0.1);
         else
-            differential_mode_V = 0;
+            thr_inputs.diff_mode_V = 0;
         
         // Depth Control
         if(depth_ctrl_on)
-            common_mode_V = controllers_.depth(desired_depth, depth, 0.1);
+            thr_inputs.comm_mode_V = controllers_.depth(desired_depth, depth, 0.1);
         else
-            common_mode_V = 0;
+            thr_inputs.comm_mode_V = 0;
         
         // Speed Control
         if(speed_ctrl_on)
-            common_mode_F = controllers_.velocity(desired_u, u, 0.1);
+            thr_inputs.comm_mode_F = controllers_.velocity(desired_u, u, 0.1);
         else
-            common_mode_F = 0;
+            thr_inputs.comm_mode_F = 0;
 
         // printf("u: %f | CF %f | DF %f | CV %f | DV %f\n",u, common_mode_F, differential_mode_F,common_mode_V, differential_mode_V);
-    
-    	// Call thruster service
-        cbot_ros_msgs::ThrusterControl temp;
-        temp.request.comm_mode_F = common_mode_F;
-        temp.request.diff_mode_F = differential_mode_F;
-        temp.request.comm_mode_V = common_mode_V;
-        temp.request.diff_mode_V = differential_mode_V;
-        
-        if (ros::service::call("thruster_control", temp))
-        {
-        }
+
+        thruster_cmdm_pub.publish(thr_inputs);
     }
     else if(!controller_on && flag==0){
         flag=1;
-        cbot_ros_msgs::ThrusterControl temp;
-        temp.request.comm_mode_F = 0;
-        temp.request.diff_mode_F = 0;
-        temp.request.comm_mode_V = 0;
-        temp.request.diff_mode_V = 0;
+        cbot_ros_msgs::ThrusterCMDM thr_inputs;
+        thr_inputs.comm_mode_F = 0;
+        thr_inputs.diff_mode_F = 0;
+        thr_inputs.comm_mode_V = 0;
+        thr_inputs.diff_mode_V = 0;
+        thruster_cmdm_pub.publish(thr_inputs);
     }
 }
 
