@@ -1,0 +1,6 @@
+# Add all the Safety Parameters for CBOT here
+
+max_depth : 10.0
+max_pitch: 15.0
+max_roll : 10.0
+max_velocity: 1.0

@@ -1,0 +1,6 @@
+Pose goal
+float32 speed
+float32 captureRadius
+float32 slipRadius
+int8 mode
+---

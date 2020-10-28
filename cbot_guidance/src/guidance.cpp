@@ -1,31 +1,33 @@
 /*
 *********************************** CLASS *******************************
-=> Contains WayPt, Linefollow and Arcfollow guidance algorithms
+=> Contains WayPt, Linefollow, StationKeeping and Arcfollow guidance algorithms
 *************************************************************************
 */
 
 #include "cbot_guidance/guidance.hpp"
 
-double GUIDANCE::acceptable_radius = 2;
-double GUIDANCE::Kd_Thrust = 1; 
-double GUIDANCE::Kp_Thrust = 1;
+namespace cbot_guidance{
 
-double GUIDANCE::desired_heading = 0;
-double GUIDANCE::desired_pos_x1 = 0; 
-double GUIDANCE::desired_pos_y1 = 0; 
-double GUIDANCE::desired_pos_x2 = 0; 
-double GUIDANCE::desired_pos_y2 = 0; 
-double GUIDANCE::desired_pos_xc = 0; 
-double GUIDANCE::desired_pos_yc = 0;
-int GUIDANCE::arc_follow_direction = 0;
-int GUIDANCE::firstcurrdiff = 0;
-double GUIDANCE::antiwindup_curr = 0; 
-double GUIDANCE::last_d = 0; 
-double GUIDANCE::PsiC = 0;
-
-
-bool GUIDANCE::WayPtGuidance(double veh_x, double veh_y)
+Guidance::Guidance(const ros::NodeHandle& nh,const ros::NodeHandle& private_nh)
+    :nh_(nh),
+     private_nh_(private_nh),
+     initialized_parameters_(false)
 {
+    initializeParameters();
+}
+
+Guidance::~Guidance(){}
+
+void Guidance::initializeParameters(){
+    capture_radius = 2.0;
+
+    initialized_parameters_=true;
+}
+
+bool Guidance::WayPtGuidance(double veh_x, double veh_y)
+{
+    assert(initialized_parameters_==true);
+    
     double x_err, y_err, z_err, rho_squared, rho, vel;  // Calculate the desired heading using present position
     float eps = 0.0000001;
 
@@ -33,89 +35,103 @@ bool GUIDANCE::WayPtGuidance(double veh_x, double veh_y)
     y_err = desired_pos_y1 - veh_y;
 
     if (fabs(y_err) < eps) y_err = eps;     // Divide-by-zero prevention
-    desired_heading = atan2(x_err, y_err) * RAD_2_DEG;
+    
+    desired_heading = atan2(y_err, x_err) * RAD_2_DEG;
+    
     if (desired_heading < 0) desired_heading = 360 - fabs(desired_heading);
 
     rho_squared = x_err * x_err + y_err * y_err;
     rho = sqrt(rho_squared);
-    if (rho < acceptable_radius) 
+    if ((rho < capture_radius)) 
     {
         return true;
     }
     return false;
 }
 
-bool GUIDANCE::LineFollowGuidance(double veh_x, double veh_y)
-{
-    float m, Beta, BetaN, EndPos, X1, X2, Y1, Y2, XEnd, YEnd, XNew, YNew, d, d_derivative, PsiDot, PsiH;
-    float KAUW = 1, PsiMax = 1, RefH;
-    float x_err, y_err;
-    float eps = 0.0000001;
-    float tempdist;
 
+bool Guidance::LineFollowGuidance(double veh_x, double veh_y, double Ts)
+{
+    assert(initialized_parameters_==true);
+
+    double m, beta_n, x1, x2, y1, y2, x_end, y_end, x_new, y_new, d, d_derivative, psi_dot, psi_h;
+    float u = 0.5, kauw = 1/Ts, psi_max = 1, ref_h;
+    double x_err, y_err;
+    float eps = 0.0000001;
+    
     double x_1, y_1;
 
-    X1 = desired_pos_x1;
-    Y1 = desired_pos_y1;
-    X2 = desired_pos_x2;
-    Y2 = desired_pos_y2;
+    x1 = desired_pos_x1;
+    y1 = desired_pos_y1;
+    x2 = desired_pos_x2;
+    y2 = desired_pos_y2;
 
-    if(X1 != 0 and Y1 !=0 and X2 != 0 and Y2 != 0)
-    {
-        ROS_INFO("Following line %f %f to %f %f" , X1, Y1, X2, Y2);
+    // ROS_INFO_STREAM("Following line %f %f to %f %f",X1,Y1,X2,Y2);
 
-        x_err = veh_x - X1;
-        y_err = veh_y - Y1;
-        tempdist = x_err * x_err + y_err * y_err;
+    x_err = veh_x - x1;
+    y_err = veh_y - y1;
+    
+    y_1 = y2 - y1;
+    x_1 = x2 - x1;
 
-        y_1 = Y2 - Y1;
-        x_1 = X2 - X1;
+    beta_n = atan2(y_1, x_1+eps);
 
-        Beta = atan2(y_1, x_1);
-        BetaN = (PI / 2) - Beta;
+    x_end = (x2-x1)*cos(-beta_n) - (y2-y1)*sin(-beta_n);
 
-        XEnd = (X2 - X1) * cos(-Beta) - (Y2 - Y1) * sin(-Beta);
+    x_new = x_err*cos(-beta_n) - y_err*sin(-beta_n);
+    y_new = x_err*sin(-beta_n) + y_err*cos(-beta_n);
 
-        XNew = x_err * cos(-Beta) - y_err * sin(-Beta);
-        YNew = x_err * sin(-Beta) + y_err * cos(-Beta);
+    d = -y_new;
+    std::cout << "Distance from Line: " << d << std::endl;
 
-        d = YNew;
-        if (firstcurrdiff == 1)
-            d_derivative = (d - last_d);
-        else
-            d_derivative = d;
+    d_derivative = (d-last_d)/Ts;
 
-        last_d = d;
-        firstcurrdiff = 1;
+    last_d = d;
+    
+    psi_dot = -(lfw_kd*d/u) - (d_derivative*lfw_kp/u) + lfw_antiwindup;
+    lfw_psi_c = lfw_psi_c + psi_dot*Ts;
+    psi_h = lfw_psi_c;
 
-        PsiDot = -(Kd_Thrust) * d - d_derivative * Kp_Thrust + antiwindup_curr;
-        PsiC = PsiC + PsiDot;
-        PsiH = PsiC;
+    if (lfw_psi_c > psi_max)
+      psi_h = psi_max;
 
-        if (PsiC > PsiMax)
-          PsiH = PsiMax;
+    else if (lfw_psi_c < -psi_max)
+      psi_h = -psi_max;
 
-        if (PsiC < (-PsiMax))
-          PsiH = -PsiMax;
+    lfw_antiwindup = kauw * (psi_h - lfw_psi_c);
+    ref_h = beta_n - asin(psi_h);
 
-        antiwindup_curr = KAUW * (PsiH - PsiC);
-        RefH = BetaN - asin(PsiH);
+    desired_heading = ref_h * RAD_2_DEG;
+    
+    if (x_new > (x_end - capture_radius)) 
+        return true;
 
-        desired_heading = RefH * RAD_2_DEG;
-        if (desired_heading < 0) desired_heading = 360 - fabs(desired_heading);
-
-        if (XNew > (XEnd - 2)) 
-        {
-            firstcurrdiff = 0;
-            return true;
-        }
-    }
     return false;
 }
 
-
-bool GUIDANCE::ArcFollowGuidance(double veh_x, double veh_y) 
+bool Guidance::StKpGuidance(double veh_x, double veh_y)
 {
+    assert(initialized_parameters_==true);
+
+    double x_err, y_err, z_err, dist_err;
+    float eps = 0.0000001;
+
+    x_err = desired_pos_x1 - veh_x;
+    y_err = desired_pos_y1 - veh_y;
+    dist_err = x_err*x_err + y_err*y_err - 1;
+    if (fabs(x_err) < eps) x_err += x_err/fabs(x_err)*eps;     // Divide-by-zero prevention
+
+    desired_heading = atan2(y_err, x_err) * RAD_2_DEG;
+    
+    desired_thrust_cmf = 0.5*asin(dist_err/(fabs(dist_err)+1))*2/PI;
+
+    return false;
+}
+
+bool Guidance::ArcFollowGuidance(double veh_x, double veh_y) 
+{
+    assert(initialized_parameters_==true);
+
     double gamma0 = 0.0, gammaend, gam, delta;
     short int k;
     double phi0 , phie, phi, beta;
@@ -129,7 +145,7 @@ bool GUIDANCE::ArcFollowGuidance(double veh_x, double veh_y)
     int firstArcFollow = 0;
     double heading;
 
-    double d_derivative, PsiDot, PsiH, KAUW = 1, PsiMax = 1, RefH, BetaN;
+    double d_derivative, psi_dot, psi_h, kauw = 1, psi_max = 1, ref_h, beta_n;
     MATRIX m1, m2, m3;
     m1.row = 2, m2.row = 2, m1.col = 2, m2.col = 1;
     m3.row = 2, m3.col = 1;
@@ -183,11 +199,9 @@ bool GUIDANCE::ArcFollowGuidance(double veh_x, double veh_y)
 
         gammaend = gamma0 + Rad * delta;
         printf("\n gammaend::%f, gam::%f, k = %d", gammaend, gam, k);
+        
         if (abs(gam - gammaend) < 3)
-        {
-            firstcurrdiff = 0;
             return true;
-        }
 
         m1.m[0][0] = cos(beta);
         m1.m[0][1] = sin(beta);
@@ -201,29 +215,27 @@ bool GUIDANCE::ArcFollowGuidance(double veh_x, double veh_y)
 
         d = m3.m[1][0];
 
-        BetaN = (PI / 2) - beta;
+        beta_n = (PI / 2) - beta;
 
-        if (firstcurrdiff == 1)
-            d_derivative = (d - last_d);
-        else
-            d_derivative = d;
+        d_derivative = (d - last_d);
 
         last_d = d;
-        firstcurrdiff = 1;
 
-        PsiDot = -(Kd_Thrust) * d - d_derivative * (Kp_Thrust) + antiwindup_curr;
-        PsiC = PsiC + PsiDot;
-        PsiH = PsiC;
+        psi_dot = -(arc_kd) * d - d_derivative * (arc_kp) + antiwindup_arc;
+        arc_psi_c = arc_psi_c + psi_dot;
+        psi_h = arc_psi_c;
 
-        if (PsiC > PsiMax)
-            PsiH = PsiMax;
-        if (PsiC < (-PsiMax))
-            PsiH = -PsiMax;
-        antiwindup_curr = KAUW * (PsiH - PsiC);
-        RefH = BetaN - asin(PsiH);
+        if (arc_psi_c > psi_max)
+            psi_h = psi_max;
+        if (arc_psi_c < (-psi_max))
+            psi_h = -psi_max;
+        antiwindup_arc = kauw * (psi_h - arc_psi_c);
+        ref_h = beta_n - asin(psi_h);
 
-        desired_heading = RefH * RAD_2_DEG;
+        desired_heading = ref_h * RAD_2_DEG;
         if (desired_heading < 0) desired_heading = 360 - fabs(desired_heading);
     }
     return false;
+}
+
 }

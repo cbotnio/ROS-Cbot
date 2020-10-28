@@ -1,0 +1,4 @@
+float32 comm_mode_F
+float32 diff_mode_F
+float32 comm_mode_V
+float32 diff_mode_V

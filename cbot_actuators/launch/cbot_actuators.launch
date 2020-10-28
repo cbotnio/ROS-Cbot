@@ -1,6 +1,4 @@
 <?xml version="1.0"?>
 <launch>
-    <rosparam file="$(find cbot_actuators)/config/params.yaml" command="load" />
-    <node name="thruster_node" pkg="cbot_actuators" type="thruster_node" output="screen">
-    </node>
+    <node name="thruster_node" pkg="cbot_actuators" type="thruster_node" respawn="true" output="screen"/>
 </launch>

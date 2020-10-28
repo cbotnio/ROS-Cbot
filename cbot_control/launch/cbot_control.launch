@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-    <node name="control_node" pkg="cbot_control" type="control_node" output="screen">
+	<node name="control_node" pkg="cbot_control" type="control_node" respawn="true" output="screen">
     </node>
 </launch>

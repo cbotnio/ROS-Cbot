@@ -1,10 +1,12 @@
 <?xml version="1.0"?>
 <launch>
     <rosparam file="$(find cbot)/config/params.yaml" command="load" />
-    <node name="thruster_node" pkg="cbot_actuators" type="thruster_node"></node>
-    <node name="control_node" pkg="cbot_control" type="control_node"></node>
-    <node name="guidance_node" pkg="cbot_guidance" type="guidance_node"></node>
-    <node name="safety_monitor_node" pkg="cbot_monitoring" type="safety_monitor_node"></node>
-    <node name="navigation_node" pkg="cbot_navigation" type="navigation_node"></node>
-    <node name="sensors_node" pkg="cbot_sensors" type="sensors_node"></node>
+    <include file="$(find cbot_actuators)/launch/cbot_actuators.launch" />
+    <include file="$(find cbot_sensors)/launch/cbot_sensors.launch" />
+    <include file="$(find cbot_control)/launch/cbot_control.launch" />
+    <include file="$(find cbot_guidance)/launch/cbot_guidance.launch" />
+    <include file="$(find cbot_monitoring)/launch/cbot_monitoring.launch" />
+    <include file="$(find cbot_navigation)/launch/cbot_navigation.launch" />
+    <include file="$(find cbot_manager)/launch/cbot_manager.launch" />
+    <include file="$(find cbot_mission)/launch/cbot_mission.launch" />
 </launch>

@@ -19,9 +19,10 @@ find_package(catkin REQUIRED COMPONENTS
   cbot_navigation
   cbot_sensors
   genmsg
+  dynamic_reconfigure
 )
 
 catkin_package(
-  CATKIN_DEPENDS roscpp cbot_ros_msgs cbot_actuators cbot_common cbot_control cbot_guidance cbot_monitoring cbot_navigation cbot_sensors
+  CATKIN_DEPENDS roscpp cbot_ros_msgs cbot_actuators cbot_common cbot_control cbot_guidance cbot_monitoring cbot_navigation cbot_sensors 
   #INCLUDE_DIRS include
 )

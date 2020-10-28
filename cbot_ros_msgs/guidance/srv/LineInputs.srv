@@ -1,0 +1,6 @@
+Pose start
+Pose end
+float32 speed
+float32 captureRadius
+int8 mode
+---

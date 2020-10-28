@@ -4,26 +4,50 @@ project(cbot_ros_msgs)
 find_package(catkin REQUIRED COMPONENTS message_generation std_msgs geometry_msgs genmsg)
 
 add_message_files(
-  DIRECTORY sensors
+  DIRECTORY sensors/msg
   FILES
   AHRS.msg
   GPS.msg
 )
 
 add_message_files(
-  DIRECTORY monitoring
+  DIRECTORY actuators/msg
+  FILES
+  ThrusterInputs.msg
+  ThrusterCMDM.msg
+)
+
+add_message_files(
+  DIRECTORY controller/msg
+  FILES
+  ControllerInputs.msg
+)
+
+add_message_files(
+  DIRECTORY guidance/msg
+  FILES
+  Pose.msg
+)
+
+add_message_files(
+  DIRECTORY monitoring/msg
   FILES
   SensorsStatus.msg
 )
 
+add_service_files(
+  DIRECTORY guidance/srv
+  FILES
+  WaypointInputs.srv
+  LineInputs.srv
+  ArcInputs.srv
+)
+
 
 add_service_files(
-  DIRECTORY srv
+  DIRECTORY mission_parser/srv
   FILES
-  ControllerInputs.srv
-  ControllerSettings.srv
-  GuidanceInputs.srv
-  ThrusterControl.srv
+  String.srv
 )
 
 generate_messages(

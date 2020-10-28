@@ -1,3 +1,6 @@
+#ifndef MATRIX_H
+#define MATRIX_H
+
 #include "ros/ros.h"
 
 class MATRIX 
@@ -12,3 +15,5 @@ class MATRIX
         static MATRIX add(MATRIX m1, MATRIX m2);
         static MATRIX transpose(MATRIX m);
 };
+
+#endif

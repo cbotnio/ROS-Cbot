@@ -1,9 +1,18 @@
-#ifndef _AHRS_H_
-#define _AHRS_H_
+#ifndef AHRS_H
+#define AHRS_H
 
-#include "ros/ros.h"
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <stdint.h>
+#include <cbot_ros_msgs/AHRS.h>
 #include <cbot_common/serial.hpp>
-#include "cbot_ros_msgs/AHRS.h"
+#include <cbot_sensors/AHRS/vnav.hpp>
+#include <ros/ros.h>
 
 #define AHRS_FAIL 0
 #define AHRS_CALLIB 1
@@ -11,18 +20,15 @@
 
 #define SYNC 0xFF
 
-
 class AHRS: public SERIAL {
-  public:
-      AHRS(const char *com_port_path_string, int BAUD_RATE);
-      cbot_ros_msgs::AHRS decode();
-      void writeAhrs();
-      void initAhrs();
-  private:
-      cbot_ros_msgs::AHRS checkAhrs(unsigned char *temp, int res);
-      unsigned char checksumAhrs(unsigned char *buf, int res);  
-      cbot_ros_msgs::AHRS tokenizeAHRSData(unsigned char *buf); 
-      float toFloat(unsigned char *buf);
+	public:
+		AHRS(const char *com_port_path_string, int BAUD_RATE, int type);
+		~AHRS();
+		void read_ahrs(cbot_ros_msgs::AHRS& temp);
+		int _type;
+		
+	private:
+		VNAV vnav;
 };
 
 #endif

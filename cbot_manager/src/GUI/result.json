@@ -1,0 +1,114 @@
+{
+    "Missions": {
+        "M1": {
+            "names": [
+                "ch3"
+            ]
+        },
+        "M2": {
+            "names": [
+                "ch1"
+            ]
+        },
+        "M3": {
+            "names": [
+                "ch2"
+            ]
+        },
+        "M4": {
+            "names": [
+                "L1"
+            ]
+        },
+        "M5": {
+            "names": [
+                "L2"
+            ]
+        },
+        "M6": {
+            "names": [
+                "L3"
+            ]
+        },
+        "M7": {
+            "names": [
+                "L4"
+            ]
+        },
+        "M8": {
+            "names": [
+                "L5"
+            ]
+        }
+    },
+    "GuidanceTable": {
+        "ch3": {
+            "type": "constHeading",
+            "data": {
+                "heading": "0",
+                "timeout": "15"
+            }
+        },
+        "ch1": {
+            "type": "constHeading",
+            "data": {
+                "heading": "180",
+                "timeout": "15"
+            }
+        },
+        "ch2": {
+            "type": "constHeading",
+            "data": {
+                "heading": "0",
+                "timeout": "15"
+            }
+        },
+        "L1": {
+            "type": "lfw",
+            "data": {
+                "position1": "(15.4507,73.8041)",
+                "position2": "(15.4509, 73.8041)",
+                "speed": "0.5",
+                "timeout": "10000"
+            }
+        },
+        "L2": {
+            "type": "lfw",
+            "data": {
+                "position1": "(15.4509,73.8041)",
+                "position2": "(15.4509, 73.8043)",
+                "speed": "0.5",
+                "timeout": "10000"
+            }
+        },
+        "L3": {
+            "type": "lfw",
+            "data": {
+                "position1": "(15.4519,73.8043)",
+                "position2": "(15.4507, 73.8043)",
+                "speed": "0.5",
+                "timeout": "10000"
+            }
+        },
+        "L4": {
+            "type": "lfw",
+            "data": {
+                "position1": "(15.4507,73.8043)",
+                "position2": "(15.4507, 73.8045)",
+                "speed": "0.5",
+                "timeout": "10000"
+            }
+        },
+        "L5": {
+            "type": "lfw",
+            "data": {
+                "position1": "(15.4507,73.8045)",
+                "position2": "(15.4509, 73.8045)",
+                "speed": "0.5",
+                "timeout": "10000"
+            }
+        }
+    },
+    "BHVTable": {},
+    "Safety": {}
+}

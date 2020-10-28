@@ -26,13 +26,22 @@ catkin_package(
   INCLUDE_DIRS include
 )
 
-add_library(gps ${PROJECT_SOURCE_DIR}/src/gps.cpp)
-add_dependencies(gps cbot_ros_msgs_generate_messages_cpp)
-target_link_libraries(gps ${LIBS} ${catkin_LIBRARIES} ${cbot_common_LIBRARIES})
+add_library(simple_gps ${PROJECT_SOURCE_DIR}/src/GPS/simple_gps.cpp)
+add_dependencies(simple_gps cbot_ros_msgs_generate_messages_cpp)
+target_link_libraries(simple_gps ${LIBS} ${catkin_LIBRARIES} ${cbot_common_LIBRARIES})
 
-add_library(ahrs ${PROJECT_SOURCE_DIR}/src/ahrs.cpp)
+add_library(gps ${PROJECT_SOURCE_DIR}/src/GPS/gps.cpp)
+add_dependencies(gps cbot_ros_msgs_generate_messages_cpp)
+target_link_libraries(gps ${LIBS} ${catkin_LIBRARIES} ${cbot_common_LIBRARIES} simple_gps)
+
+add_library(vnav ${PROJECT_SOURCE_DIR}/src/AHRS/vnav.cpp)
+add_dependencies(vnav cbot_ros_msgs_generate_messages_cpp)
+target_link_libraries(vnav ${LIBS} ${catkin_LIBRARIES} ${cbot_common_LIBRARIES})
+
+add_library(ahrs ${PROJECT_SOURCE_DIR}/src/AHRS/ahrs.cpp)
 add_dependencies(ahrs cbot_ros_msgs_generate_messages_cpp)
-target_link_libraries(ahrs ${LIBS} ${catkin_LIBRARIES} ${cbot_common_LIBRARIES})
+target_link_libraries(ahrs ${LIBS} ${catkin_LIBRARIES} ${cbot_common_LIBRARIES} vnav)
+
 
 add_executable(sensors_node ${PROJECT_SOURCE_DIR}/src/sensor_node.cpp ${HEADER_FILES})
 add_dependencies(sensors_node cbot_ros_msgs_generate_messages_cpp)

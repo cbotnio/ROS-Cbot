@@ -1,10 +1,24 @@
-reference_latitude: 15.455296
-reference_longitude: 73.8025609
-GPS_port: "/dev/ttyS81"
-GPS_baudrate: B9600
-AHRS_port: "/dev/ttyS83"
-AHRS_baudrate: B38400
-Controller_ON: 1
-HIL_ON: 1
-HIL_port: "/dev/ttyS85"
-HIL_baud: B9600
+reference_latitude: 15.4507
+reference_longitude: 73.8041
+
+gps_port: "/tmp/gps-read"
+gps_baudrate: B9600
+gps_status: 1
+gps_type: 0
+
+ahrs_port: "/tmp/ahrs-read"
+ahrs_baudrate: B115200
+ahrs_status: 1
+ahrs_type: 0
+
+thrusters_port: "/tmp/thr-write"
+thrusters_baudrate: B9600
+
+gcs_port: "/tmp/GUI-read"
+gcs_baudrate: 9600
+
+guidance_on: 1
+thrusters_on: 1
+
+mode: "ROV"
+status: "Stop"
