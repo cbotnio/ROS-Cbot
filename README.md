@@ -4,6 +4,17 @@ The C-Bot is an unmanned underwater vehicle developed by the Marine Instrumentat
 # ROS-CBOT
 This repository contains the software to be used on CBOT. It contains the algorithms for control, guidance and mission planning.
 
+#### The C-Bot has following capabilities:
+1. Heading Control
+2. Depth Control
+3. Altitude Control
+4. Way Point Guidance
+5. Path following of straight line and sectors of arc in the presence of oceanic currents
+6. Navigation - Dead Reckoning, Acoustic based use range and bearing from iUSBL and Rnage only based navigation.
+7. Docking uisng acoustics and vision
+8. Capabale of self docking and release can be deployed for 6 months with one survey mission per month, and static monitoring twice a day while docked.
+
+
 ## Pre-requisites
 This assumes that you have ROS-Kinetic or ROS-Melodic installed on your machine. 
 
@@ -60,3 +71,8 @@ $ roslaunch cbot_description upload_cbot.launch
 ```
 $ roslaunch cbot cbot.launch
 ```
+
+#### Developers:
+1. Pramod Maurya,
+2. Lakshadeep Naik
+3. Mohit Sushil Gupta
