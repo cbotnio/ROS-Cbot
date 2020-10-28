@@ -1,16 +1,8 @@
+#include "cbot_sensors/AHRS/vnav.hpp"
 
-#include "cbot_sensors/imu.hpp"
-
-
-//*****************************************************************************
-IMU_AHRS::IMU_AHRS(const char *com_port_path_string, int BAUD_RATE) : SERIAL(com_port_path_string, BAUD_RATE)
-{
-    strcpy(com_port_path, com_port_path_string);
-    BAUDRATE = BAUD_RATE;
-}
 
 //#############################################################################S
-int IMU_AHRS::checksum ( char *str ) {	// $GPRMC,,,,,,*4D\n
+int VNAV::checksum ( char *str ) {	// $GPRMC,,,,,,*4D\n
 	unsigned char cs=0, sum=0, i=0;
 	char           sCS[8];
 	
@@ -33,7 +25,7 @@ int IMU_AHRS::checksum ( char *str ) {	// $GPRMC,,,,,,*4D\n
 // $GPRMC,064723.000,A,1527.3288,N,07348.1953,E,0.00,270.46,250319,,,A*67
 // $VNYMR,-086.098,+000.284,+017.943,+00.0177,+00.2612,-00.0128,+00.056,-03.021,-09.325,+00.000895,-00.001988,+00.001197*60
 // 
-char *IMU_AHRS::get_field ( char *str, int fld ){
+char *VNAV::get_field ( char *str, int fld ){
 	static char t0[512];
 	int  i=0, j=0, k=0;
 	
@@ -57,7 +49,7 @@ char *IMU_AHRS::get_field ( char *str, int fld ){
 
 //*****************************************************************************
 // Calculates the 16-bit CRC for the given ASCII or binary message.
-unsigned short IMU_AHRS::calculateCRC(unsigned char data[], unsigned int length) {
+unsigned short VNAV::calculateCRC(unsigned char data[], unsigned int length) {
 	unsigned int i;
 	unsigned short crc = 0;
 
@@ -75,7 +67,7 @@ unsigned short IMU_AHRS::calculateCRC(unsigned char data[], unsigned int length)
 //*****************************************************************************
 // voodoo code, dont touch.......
 //
-int IMU_AHRS::calCRC ( unsigned char buf[] ) {
+int VNAV::calCRC(unsigned char buf[]) {
 	unsigned char    j=1, x=1;
 	unsigned int     i, k=0, n=1, m=0;
 	unsigned short   crc = 0;
@@ -136,9 +128,8 @@ int IMU_AHRS::calCRC ( unsigned char buf[] ) {
 }
 
 //*****************************************************************************************************************
-cbot_ros_msgs::AHRS IMU_AHRS::tokenizeAHRSData(Nvsdata *dptr) 
+void VNAV::tokenizeAHRSData(cbot_ros_msgs::AHRS& temp,Nvsdata *dptr) 
 {
-    cbot_ros_msgs::AHRS temp;
     temp.Roll = (float)(dptr->roll);
     temp.Pitch = -(float)(dptr->pitch) ;
     temp.YawAngle = -(float)(dptr->yaw) + 90.0;
@@ -153,8 +144,6 @@ cbot_ros_msgs::AHRS IMU_AHRS::tokenizeAHRSData(Nvsdata *dptr)
 
     temp.Temp = (dptr->temp);
     temp.AHRS_Status = AHRS_GOOD;
-
-    return temp;
 }
 
 //*****************************************************************************************************************
@@ -163,33 +152,30 @@ cbot_ros_msgs::AHRS IMU_AHRS::tokenizeAHRSData(Nvsdata *dptr)
 // FA 01 08 00 08 22 1D C3 1D C3 17 C0 82 C6 BC 40 16 ED 
 // FA 01 08 00 9D 21 1D C3 DB 3E 18 C0 BC 8F BC 40 7B C3 
 // 
-cbot_ros_msgs::AHRS IMU_AHRS::read_ahrs_bin ( void ) {
-//	char                 buf[256]={0xFA,0x01,0x08,0x00,0xAE,0x23,0x1D,0xC3,0x2D,0xB1,0x17,0xC0,0x01,0xBA,0xBC,0x40,0x48,0x48}
-	cbot_ros_msgs::AHRS temp;
-	unsigned char        buf[256], cs[32];
+void VNAV::read_ahrs_bin(cbot_ros_msgs::AHRS& temp,unsigned char buf[], int res){
+//	char                 buf[256]={0xFA,0x01,0x08,0x00,0xAE,0x23,0x1D,0xC3,0x2D,0xB1,0x17,0xC0,0x01,0xBA,0xBC,0x40,0x48,0x48}	
+	unsigned char        cs[32];
 	static char          dbuf[512];
-	int                  res=0, i, sync=0;
+	int                  i, sync=0;
 	static unsigned int  cnt=0, wp=0;
 	unsigned short       dm=0;
 	float *ptr;
 
 	Nvsdata *dptr;
 	
-	res = read(fd, buf, 250);
-	if ( res ) {
+	if(res){
 		fflush ( NULL );
 	}
-	for ( i=0; i<res; i++ ) {
+	for( i=0; i<res; i++ ) {
 		dbuf[wp++] = buf[i];
 		if ( wp >= 512 )		wp=0;
  	}
  	
- 	if(calCRC(buf )==1){
+ 	if(calCRC(buf)==1){
 		dptr = (Nvsdata *)(buf+8);
 		fflush(stdout);
 	 	wp=0;
-	 	temp = tokenizeAHRSData(dptr);
+	 	tokenizeAHRSData(temp,dptr);
 	}
-	return temp;
 }
 //*****************************************************************************

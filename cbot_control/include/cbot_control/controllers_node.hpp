@@ -12,7 +12,6 @@
 #include "ros/ros.h"
 #include "cbot_ros_msgs/AHRS.h"
 #include "nav_msgs/Odometry.h"
-#include "cbot_ros_msgs/ControllerSettings.h"
 #include "cbot_ros_msgs/ThrusterCMDM.h"
 #include "cbot_ros_msgs/ControllerInputs.h"
 #include "cbot_control/controllers.hpp"
@@ -65,7 +64,8 @@ class ControllersNode{
         double yaw, yaw_rate, pitch, pitch_rate,roll, last_pitch, last_pitch_rate, Ts, depth, vx, vy, vz;
         double common_mode_F, differential_mode_F;
         double common_mode_V, differential_mode_V;
-        int controller_on, heading_ctrl_on, pitch_ctrl_on, speed_ctrl_on, depth_ctrl_on, first_diff_pitch, flag;
+        int controller_on, heading_ctrl_on, pitch_ctrl_on, speed_ctrl_on, depth_ctrl_on, roll_ctrl_on;
+        int first_diff_pitch, flag;
 };
 
 } // end namespace cbot_control

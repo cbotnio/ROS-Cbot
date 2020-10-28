@@ -19,9 +19,16 @@ class Guidance {
         ~Guidance();
     
         bool WayPtGuidance(double veh_x, double veh_y);
+        bool WayPtFAGuidance(double veh_x, double veh_y);
+        
         bool LineFollowGuidance(double veh_x, double veh_y, double Ts);
+        bool LineFollowFAGuidance(double veh_x, double veh_y, double Ts);
+        
         bool StKpGuidance(double veh_x, double veh_y);
+        bool StKpFAGuidance(double veh_x, double veh_y);
+        
         bool ArcFollowGuidance(double veh_x, double veh_y);
+        bool ArcFollowFAGuidance(double veh_x, double veh_y);
 
         void setDesiredX1(double x1){
             desired_pos_x1 = x1;
@@ -40,6 +47,9 @@ class Guidance {
         }
         void setDesiredYc(double yc){
             desired_pos_yc = yc;
+        }
+        void setCaptureRadius(double cr){
+            capture_radius = cr;
         }
         void setArcDirection(int afd){
             arc_follow_direction = afd;
@@ -74,7 +84,7 @@ class Guidance {
         double desired_pos_x1, desired_pos_y1, desired_pos_x2, desired_pos_y2, desired_pos_xc, desired_pos_yc;
         
         // Waypoint Guidance
-        double desired_heading, acceptable_radius;
+        double desired_heading, capture_radius;
         
         //Line Follow Guidance
         double last_d, lfw_psi_c, lfw_antiwindup, lfw_kd, lfw_kp;

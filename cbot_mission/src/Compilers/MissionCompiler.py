@@ -3,39 +3,53 @@
 # Author: Mohit Gupta, BITS Goa
 ###################################################
 
-import json
+writeToFile = 1 #Write mission to json file for check
+
+try:
+	import json
+except:
+	print("[Import Error] Cannot write to JSON file.")
+	writeToFile = 0
 
 fileName = ""
 
-MissionTypes = {"guidance": ["wpt", "lfw", "arc", "dock"],
-				"guidance2": ["constDepth", "constHeading", "constPitch", "constSpeed", "surfacing"],
+MissionTypes = {"guidance": ["wpt", "wptFA", "lfw", "lfwFA", "arc", "arcFA", "dock"],
+				"guidance2": ["constDepth", "constHeading", "constPitch", "constSpeed","constThrust", "surfacing"],
 				"behaviour":["loiter"]}
 
 # List of all possible paramerters for the guidance missions
-params = {"wpt": ["position", "depth", "speed", "heading", "captureRadius", "slipRadius", "timeout"],
-		  "lfw": ["position1", "position2", "depth", "speed", "heading", "captureRadius", "timeout"],
-		  "arc": ["centerCoord", "depth", "radius","speed", "heading", "captureRadius", "direction", "start", "timeout"],
+params = {"wpt": ["position", "depth", "speed", "captureRadius", "slipRadius", "timeout"],
+		  "wptFA": ["position", "depth", "speed", "heading","pitch","roll", "captureRadius", "slipRadius", "timeout"],
+		  "lfw": ["position1", "position2", "depth", "speed", "captureRadius", "timeout"],
+		  "lfwFA": ["position1", "position2", "depth", "speed", "heading","pitch","roll", "captureRadius", "timeout"],
+		  "arc": ["centerCoord", "depth", "radius","speed", "captureRadius", "direction", "start", "timeout"],
+		  "arcFA": ["centerCoord", "depth", "radius","speed", "heading","pitch","roll", "captureRadius", "direction", "start", "timeout"],
 		  "dock": ["position", 	"depth", "heading", "runwayLength"]}
 
 # List of parameters without which the mission would be invalid
 impParams = {"wpt": ["position","speed"],
+			 "wptFA": ["position","speed"],
 			 "lfw": ["position1", "position2", "speed"],
+			 "lfwFA": ["position1", "position2", "speed"],
 			 "arc": ["centerCoord", "radius", "speed", "start"],
+			 "arcFA": ["centerCoord", "radius", "speed", "start"],
 			 "dock": ["position", 	"depth", "heading", "runwayLength"]}
 
-overrideParams = {"constDepth": ["depth"],
-				  "constSpeed": ["speed"],
-				  "constHeading": ["heading"],
-				  "constPitch": ["pitch"],
+# List of parameters which can override mission parameters when specified
+overrideParams = {"constDepth": ["depth","timeout"],
+				  "constSpeed": ["speed","timeout"],
+				  "constHeading": ["heading","timeout"],
+				  "constPitch": ["pitch","timeout"],
+				  "constThrust": ["cmf","dmf","cmv","dmv", "timeout"],
 				  "loiter": ["timeout"]}
 
 safetyParams = ["maxDepth", "maxPitch", "maxRoll", "maxSpeed"]
 
-commentTag = "#" # Comment tag to be used in the mission file 
-missionEndTag = "END" # Defines the end of Mission file
+commentTag = "#"		# Comment tag to be used in the mission file 
+missionEndTag = "END"	# Defines the end of Mission file
 
 MissionDict = {}
-MissionNameTable = {}
+GuidanceTable = {}
 BHVNameTable = {}
 Safety = {}
 
@@ -80,14 +94,14 @@ def readNewLine(splitStr = ' '):
 	return line
 
 def addData(mission,data,override):
-	global MissionNameTable
+	global GuidanceTable
 
 	missionType = mission[0]
 	line = readNewLine(splitStr = ':')
 
 	# Check if the mission is defined before
-	if(missionType in MissionNameTable.keys()):
-		return MissionNameTable[line[0]][data]
+	if(missionType in GuidanceTable.keys()):
+		return GuidanceTable[line[0]][data]
 	
 	countImpParams = {}
 	for key in impParams[missionType]:
@@ -132,36 +146,47 @@ def updateOverride(missionType,override):
 
 
 def parseMission(line,count, override, suffix, singleMission):
-	global MissionTypes, MissionNameTable, MissionDict, BHVNameTable
+	global MissionTypes, GuidanceTable, MissionDict, BHVNameTable
 	m = line[0]
 	# Check if the name is parsed previously as a behaviour
 	if(m in BHVNameTable.keys()):
 		singleMission.append(m)
 		
 	# Check if the name is parsed previously as a guidance
-	elif(m in MissionNameTable.keys()):
-		singleMission.append(m + suffix)
+	elif(m in GuidanceTable.keys()):
+		singleMission.append(suffix + m)
 		if(suffix!=''):
-			MissionNameTable[m + suffix] = {"type": MissionNameTable[m]["type"], "data": {}}
-			for key in MissionNameTable[m]["data"].keys():
-				MissionNameTable[m + suffix]["data"][key] = MissionNameTable[m]["data"][key]
+			GuidanceTable[suffix + m] = {"type": GuidanceTable[m]["type"], "data": {}}
+			for key in GuidanceTable[m]["data"].keys():
+				GuidanceTable[suffix + m]["data"][key] = GuidanceTable[m]["data"][key]
 			for key in override.keys():
-				MissionNameTable[m + suffix]["data"][key] = override[key]
+				GuidanceTable[suffix + m]["data"][key] = override[key]
 
 	# Parse the new guidance mission
 	elif (m in MissionTypes["guidance"]):
-		singleMission.append(line[1] + suffix)
-		MissionNameTable[line[1] + suffix] = {"type": line[0], "data": {}}
-		addData(line,MissionNameTable[line[1] + suffix]["data"],override)
+		singleMission.append(suffix + line[1])
+		GuidanceTable[suffix + line[1]] = {"type": line[0], "data": {}}
+		addData(line,GuidanceTable[suffix + line[1]]["data"],override)
 
 	# Check if the mission is for overriding data
 	elif(m in MissionTypes["guidance2"]):
 		suffix += line[1]
 		override = updateOverride(m,override)
 		line = readNewLine()
-		while(line[0]!='end'):
-			singleMission = parseMission(line,count,override,suffix, singleMission)
-			line = readNewLine()
+		if(line[0]=="end"):
+			singleMission.append(suffix)
+			GuidanceTable[suffix] = {"type": m, "data": {}}
+			for key in override.keys():
+				GuidanceTable[suffix]["data"][key] = override[key]
+
+		else:
+			while(line[0]!='end'):
+				temp_override = {}
+				for param in override:
+					temp_override[param] = override[param]
+				singleMission = parseMission(line,count,temp_override,suffix, singleMission)
+				line = readNewLine()
+
 
 	# Check if the mission type is a new behavior
 	elif(m in MissionTypes["behaviour"]):
@@ -179,7 +204,7 @@ def parseMission(line,count, override, suffix, singleMission):
 				raise SyntaxError(err)
 			singleMission = []
 			singleMission = parseMission(line2,count,override,suffix,singleMission)
-			if(line2[0] in BHVNameTable.keys() or line2[0] in MissionNameTable.keys()):
+			if(line2[0] in BHVNameTable.keys() or line2[0] in GuidanceTable.keys()):
 				bhvMission.append(line2[0]) 
 			elif(line2[0] in MissionTypes["behaviour"] or line2[0] in MissionTypes["guidance"]):
 				bhvMission.append(line2[1])
@@ -195,8 +220,14 @@ def parseMission(line,count, override, suffix, singleMission):
 	return singleMission
 
 def main():
+	global MissionDict, GuidanceTable, BHVNameTable, Safety
 	line = readNewLine()
 	count = 0 # To store the mission number
+
+	MissionDict = {}
+	GuidanceTable = {}
+	BHVNameTable = {}
+	Safety = {}
 
 	while(line[0]!=missionEndTag):
 		override = {}
@@ -210,7 +241,7 @@ def main():
 			parseSafetyParams()
 
 		# Check if the read line is name of pre-parsed behavior name
-		elif(line[0] in MissionNameTable.keys() or line[0] in BHVNameTable.keys()):
+		elif(line[0] in GuidanceTable.keys() or line[0] in BHVNameTable.keys()):
 			MissionDict['M'+str(count)] = {}
 			MissionDict['M'+str(count)]["names"] = [line[0]]
 
@@ -232,17 +263,18 @@ def main():
 	# Create the final dictionary to be returned
 	Mission = {}
 	Mission["Missions"] = MissionDict
-	Mission["GuidanceNameTable"] = MissionNameTable
-	Mission["BHVNameTable"] = BHVNameTable
+	Mission["GuidanceTable"] = GuidanceTable
+	Mission["BHVTable"] = BHVNameTable
 	Mission["Safety"] = Safety
 
 	f.close() # Close the mission file
 
 	# Dump the mission dictionary as JSON file for the purpose of testing
 	# This can be removed for final implementation
-	with open('result.json', 'w') as fp:
-		json.dump(Mission,fp,indent=4)
-		fp.close()
+	if(writeToFile):
+		with open('result.json', 'w') as fp:
+			json.dump(Mission,fp,indent=4)
+			fp.close()
 
 	return Mission
 

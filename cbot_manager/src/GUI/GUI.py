@@ -178,8 +178,6 @@ window = sg.Window("CBOT Control", layout)
 
 def updateStatus(ser):
   global window, MEDheartbeatCount, MEDlastHeartbeat, firstConnectionFlag
-  lat = 0.0
-  lon = 0.0
   depth = 0.00
   if(isSerOpen(ser)==1):
     readData = ser.readline().decode().strip().split(',')

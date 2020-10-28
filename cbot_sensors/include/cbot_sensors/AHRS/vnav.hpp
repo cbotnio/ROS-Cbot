@@ -1,5 +1,5 @@
-#ifndef _IMU_AHRS_H_
-#define _IMU_AHRS_H_
+#ifndef VNAV_H
+#define VNAV_H
 
 #include <stdio.h>
 #include <string.h>
@@ -11,14 +11,12 @@
 #include <stdint.h>
 #include <cbot_ros_msgs/AHRS.h>
 #include <cbot_common/serial.hpp>
-#include <ros/ros.h>
 
 #define AHRS_FAIL 0
 #define AHRS_CALLIB 1
 #define AHRS_GOOD 2
 
 #define SYNC 0xFF
-
 
 typedef struct Nvsdata {
 		uint64_t			timestart;
@@ -33,18 +31,15 @@ typedef struct Nvsdata {
 		float 				yaw1,pitch1,roll1;						//The estimated attitude (Yaw, Pitch, Roll) uncertainty (1 Sigma), reported in degrees.
 	} Nvsdata;
 
-int gps_com;
-
-class IMU_AHRS: public SERIAL {
+class VNAV{
 	public:
-		IMU_AHRS(const char *com_port_path_string, int BAUD_RATE);
-		cbot_ros_msgs::AHRS read_ahrs_bin ( void );
+		void read_ahrs_bin(cbot_ros_msgs::AHRS& temp, unsigned char buf[], int res);
 	private:
 		int checksum ( char *str );
 		char *get_field ( char *str, int fld );
 		unsigned short calculateCRC(unsigned char data[], unsigned int length);
 		int calCRC ( unsigned char buf[] );
-		cbot_ros_msgs::AHRS tokenizeAHRSData(Nvsdata *dptr); 
+		void tokenizeAHRSData(cbot_ros_msgs::AHRS& temp,Nvsdata *dptr); 
 		float toFloat(unsigned char *buf);
 };
 

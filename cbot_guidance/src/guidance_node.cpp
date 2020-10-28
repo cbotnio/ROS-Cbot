@@ -20,8 +20,10 @@ void GuidanceNode::initializeParameters(){
     f = boost::bind(&GuidanceNode::DynConfigCallback, this, _1, _2);
     dyn_config_server_.setCallback(f);
 
-    // guidance_mode = 0;
-    guidance_inputs_server = nh_.advertiseService("guidance_inputs", &GuidanceNode::guidanceInputsCallback, this);
+    waypoint_server = nh_.advertiseService("waypoint_inputs", &GuidanceNode::waypointInputsCallback, this);
+    linefollow_server = nh_.advertiseService("linefollow_inputs", &GuidanceNode::linefollowInputsCallback, this);
+    arcfollow_server = nh_.advertiseService("arcfollow_inputs", &GuidanceNode::arcfollowInputsCallback, this);
+
     controller_inputs_pub = nh_.advertise<cbot_ros_msgs::ControllerInputs>("controller_inputs",1);
     
     ahrs_sub = nh_.subscribe("/position", 1, &GuidanceNode::navigationCallback, this);
@@ -46,27 +48,68 @@ void GuidanceNode::navigationCallback(const geometry_msgs::Pose::ConstPtr& msg)
     vehicle_pos_y = msg->position.y;
 }
 
-bool GuidanceNode::guidanceInputsCallback(cbot_ros_msgs::GuidanceInputs::Request &req, cbot_ros_msgs::GuidanceInputs::Response &res)
+bool GuidanceNode::waypointInputsCallback(cbot_ros_msgs::WaypointInputs::Request &req, cbot_ros_msgs::WaypointInputs::Response &res)
 {
-    printf("New Goal\n");
+    printf("New Waypoint Goal\n");
     
-    guidance_mode = req.guidance_mode;
-    printf("Guidancce Mode: %d\n",guidance_mode );
-    UTM::LLtoUTM(23, req.desired_pos_x1, req.desired_pos_y1, &desired_pos_x1, &desired_pos_y1, Zone);
-    UTM::LLtoUTM(23, req.desired_pos_x2, req.desired_pos_y2, &desired_pos_x2, &desired_pos_y2, Zone);
+    UTM::LLtoUTM(23, req.goal.x, req.goal.y, &desired_pos_x1, &desired_pos_y1, Zone);
+    
+    guidance_.setDesiredX1(desired_pos_x1);
+    guidance_.setDesiredY1(desired_pos_y1);
+    guidance_.setCaptureRadius(req.captureRadius);
+    nominal_velocity = req.speed;
+
+    guidance_mode = req.mode;
+    
+    parameter_flag = 0;
+
+    return true;
+}
+
+bool GuidanceNode::linefollowInputsCallback(cbot_ros_msgs::LineInputs::Request &req, cbot_ros_msgs::LineInputs::Response &res)
+{
+    printf("New Line Follow Goal\n");
+    
+    UTM::LLtoUTM(23, req.start.x, req.start.y, &desired_pos_x1, &desired_pos_y1, Zone);
+    UTM::LLtoUTM(23, req.end.x, req.end.y, &desired_pos_x2, &desired_pos_y2, Zone);
     
     guidance_.setDesiredX1(desired_pos_x1);
     guidance_.setDesiredY1(desired_pos_y1);
     guidance_.setDesiredX2(desired_pos_x2);
     guidance_.setDesiredY2(desired_pos_y2);
-    guidance_.setDesiredXc(req.desired_pos_xc);
-    guidance_.setDesiredYc(req.desired_pos_yc);
-    guidance_.setArcDirection(req.arc_follow_direction);
-    nominal_velocity = req.nominal_velocity;
+    guidance_.setCaptureRadius(req.captureRadius);
+    nominal_velocity = req.speed;
 
-    res.update_inputs = true;
-
+    guidance_mode = req.mode;
+    
     parameter_flag = 0;
+
+    return true;
+}
+
+bool GuidanceNode::arcfollowInputsCallback(cbot_ros_msgs::ArcInputs::Request &req, cbot_ros_msgs::ArcInputs::Response &res)
+{
+    printf("New Arc Follow Goal\n");
+    
+    UTM::LLtoUTM(23, req.start.x, req.start.y, &desired_pos_x1, &desired_pos_y1, Zone);
+    UTM::LLtoUTM(23, req.end.x, req.end.y, &desired_pos_x2, &desired_pos_y2, Zone);
+    UTM::LLtoUTM(23, req.center.x, req.center.y, &desired_pos_xc, &desired_pos_yc, Zone);
+    
+    guidance_.setDesiredX1(desired_pos_x1);
+    guidance_.setDesiredY1(desired_pos_y1);
+    guidance_.setDesiredX2(desired_pos_x2);
+    guidance_.setDesiredY2(desired_pos_y2);
+    guidance_.setDesiredXc(desired_pos_xc);
+    guidance_.setDesiredYc(desired_pos_yc);
+    guidance_.setArcDirection(req.direction);
+    guidance_.setCaptureRadius(req.captureRadius);
+    nominal_velocity = req.speed;
+
+    guidance_mode = req.mode;
+    
+    parameter_flag = 0;
+
+    return true;
 }
 
 void GuidanceNode::timerCallback(const ros::TimerEvent& event)
@@ -122,7 +165,7 @@ void GuidanceNode::timerCallback(const ros::TimerEvent& event)
                 ros::service::call("/control_node/set_parameters",srv_req, srv_resp);
                 parameter_flag = 1;
             }
-            
+
             guidance_status = guidance_.StKpGuidance(vehicle_pos_x, vehicle_pos_y);
             nominal_velocity = guidance_.getDesiredSpeed();
         }
@@ -130,7 +173,7 @@ void GuidanceNode::timerCallback(const ros::TimerEvent& event)
         if(guidance_status){
             nominal_velocity = 0;
         }
-        
+
         std_msgs::Bool reached;
         reached.data = (guidance_status)?true:false;
         guidance_status_pub.publish(reached);

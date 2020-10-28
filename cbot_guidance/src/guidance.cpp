@@ -19,7 +19,7 @@ Guidance::Guidance(const ros::NodeHandle& nh,const ros::NodeHandle& private_nh)
 Guidance::~Guidance(){}
 
 void Guidance::initializeParameters(){
-    acceptable_radius = 2.0;
+    capture_radius = 2.0;
 
     initialized_parameters_=true;
 }
@@ -42,7 +42,7 @@ bool Guidance::WayPtGuidance(double veh_x, double veh_y)
 
     rho_squared = x_err * x_err + y_err * y_err;
     rho = sqrt(rho_squared);
-    if ((rho < acceptable_radius)) 
+    if ((rho < capture_radius)) 
     {
         return true;
     }
@@ -103,7 +103,7 @@ bool Guidance::LineFollowGuidance(double veh_x, double veh_y, double Ts)
 
     desired_heading = ref_h * RAD_2_DEG;
     
-    if (x_new > (x_end - 2)) 
+    if (x_new > (x_end - capture_radius)) 
         return true;
 
     return false;

@@ -1,12 +1,10 @@
-#include "cbot_sensors/gps.hpp"
+#include "cbot_sensors/GPS/simple_gps.hpp"
 
-GPS::GPS(const char *com_port_path_string, int BAUD_RATE) : SERIAL(com_port_path_string, BAUD_RATE)
-{
-    strcpy(com_port_path, com_port_path_string);
-    BAUDRATE = BAUD_RATE;
-}
+SimpleGPS::SimpleGPS(){}
 
-unsigned char GPS::getHex(char* value)
+SimpleGPS::~SimpleGPS(){}
+
+unsigned char SimpleGPS::getHex(char* value)
 {
     char hb, lb;
     unsigned char sum1;
@@ -24,7 +22,7 @@ unsigned char GPS::getHex(char* value)
     return (sum1);
 }
 
-int GPS::checksum(char* buf, int res, char*(chsum)) 
+int SimpleGPS::checksum(char* buf, int res, char*(chsum)) 
 {
     int i = 0;
     unsigned char val = 0x00, chksum;
@@ -38,18 +36,17 @@ int GPS::checksum(char* buf, int res, char*(chsum))
         return 0;
 }
 
-cbot_ros_msgs::GPS GPS::decode()
+void SimpleGPS::read_gps(cbot_ros_msgs::GPS& temp,char buf[],int res)
 {
-    int res, i, j, len, temp_var;
+    int i, j, len, temp_var;
     double Lat, Lon; 
     char Zone[20];
-    char buf[200], data[20][10], *ptr[20], *chsum; 
+    char data[20][10], *ptr[20], *chsum; 
     double templat, templon;
     char *ptrtmp;
-    cbot_ros_msgs::GPS temp;
 
     for (i = 0; i < 20; i++) for (j = 0; j < 10; j++) data[i][j] = 0;
-    res = read(fd,buf, 150);
+    // res = read(fd,buf, 150);
     buf[res] = 0;
     chsum = strstr(buf, "*");
     if ((chsum) && (res > 10))
@@ -105,7 +102,7 @@ cbot_ros_msgs::GPS GPS::decode()
                 {
                     temp.GPS_status = GPS_FIX_NO;
                 }
-                return temp;
+                // return temp;
             }
             else if (strncmp(buf, "$GPGGA", 6) == 0)
             {
@@ -155,20 +152,20 @@ cbot_ros_msgs::GPS GPS::decode()
                 {
                     temp.GPS_status = GPS_FIX_NO;
                 }
-                return temp;
+                // return temp;
             }
         }
         else
         {
             ROS_ERROR("GPS Checksum error");
             temp.GPS_status = GPS_FAIL;
-            return temp;
+            // return temp;
         }
     }
     else  
     {
         ROS_ERROR("GPS reset");
         temp.GPS_status = GPS_FAIL;
-        return temp;
+        // return temp;
     }
 }

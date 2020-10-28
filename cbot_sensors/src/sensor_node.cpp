@@ -1,4 +1,4 @@
-#include "cbot_sensors/imu.hpp"
+#include "cbot_sensors/ahrs.hpp"
 #include "cbot_sensors/gps.hpp"
 #include "cbot_ros_msgs/SensorsStatus.h"
 #include "cbot_common/serial.hpp"
@@ -13,6 +13,7 @@ double last_read_gps, last_read_ahrs;
 char GPS_port[100], AHRS_port[100];
 int GPS_baud, AHRS_baud;
 int GPS_OK, AHRS_OK;
+int GPS_type, AHRS_type;
 
 int main(int argc, char *argv[])
 {
@@ -21,34 +22,36 @@ int main(int argc, char *argv[])
     ros::NodeHandle n;
     
     std::string temp;
-    ros::param::getCached("gps_port", temp);
+    n.getParam("gps_port", temp);
     strcpy(GPS_port, temp.c_str());
     
-    ros::param::getCached("ahrs_port", temp);
+    n.getParam("ahrs_port", temp);
     strcpy(AHRS_port, temp.c_str());
 
-    ros::param::getCached("gps_baudrate", GPS_baud);
-    ros::param::getCached("ahrs_baudrate", AHRS_baud);
+    n.getParam("gps_baudrate", GPS_baud);
+    n.getParam("ahrs_baudrate", AHRS_baud);
 
-    GPS gps(GPS_port, GPS_baud);
-    IMU_AHRS ahrs(AHRS_port, AHRS_baud);
-    
+    n.getParam("gps_type", GPS_type);
+    n.getParam("ahrs_type", AHRS_type);
+
+    GPS gps(GPS_port, GPS_baud, GPS_type);
+    AHRS ahrs(AHRS_port, AHRS_baud, AHRS_type);
+
     gps.openNonCanonical(&oldtio[0], &newtio[0]);
     ahrs.openCanonical(30, &oldtio[1], &newtio[1]); 
 
     last_read_gps = last_read_ahrs = ros::Time::now().toSec();
 
-    sensor_status_pub = n.advertise<cbot_ros_msgs::SensorsStatus>("SENSOR", 5);
+    sensor_status_pub = n.advertise<cbot_ros_msgs::SensorsStatus>("SENSOR", 1);
     cbot_ros_msgs::SensorsStatus sensor_status_msg;
 
     if(gps.fd > 0)
     {
         ROS_INFO("GPS port opened: %d", gps.fd);
-        gps_pub = n.advertise<cbot_ros_msgs::GPS>("GPS", 5);
+        gps_pub = n.advertise<cbot_ros_msgs::GPS>("GPS", 1);
     }
     else
     {
-        ROS_INFO("GPS port opened: %d", gps.fd);
         ROS_ERROR("Couldn't open GPS port");
         exit(1);
     }
@@ -56,8 +59,7 @@ int main(int argc, char *argv[])
     if(ahrs.fd > 0)
     {
         ROS_INFO("AHRS port opened: %d", ahrs.fd);
-        ahrs_pub = n.advertise<cbot_ros_msgs::AHRS>("AHRS", 5);
-        //ahrs.initAhrs();
+        ahrs_pub = n.advertise<cbot_ros_msgs::AHRS>("AHRS", 1);
     }
     else
     {
@@ -65,7 +67,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    
     while(ros::ok())
     {
         Timeout.tv_sec = 1;
@@ -79,24 +80,23 @@ int main(int argc, char *argv[])
         result = select(FD_SETSIZE, &readfs, NULL, NULL, &Timeout);
         if (result > 0)
         {
-            if (FD_ISSET(gps.fd, &readfs))
-            { 
-                cbot_ros_msgs::GPS temp;
-                temp = gps.decode();
-                if(temp.GPS_status == 2) gps_pub.publish(temp);
-                last_read_gps = ros::Time::now().toSec();
-                GPS_OK = 1;
-            } 
             if (FD_ISSET(ahrs.fd, &readfs))
             {  
                 cbot_ros_msgs::AHRS temp;
-                temp = ahrs.read_ahrs_bin();
-                if(temp.AHRS_Status == 2){
-                    ahrs_pub.publish(temp);
-                    AHRS_OK = 1;
-                }
+                ahrs.read_ahrs(temp);
+                if(temp.AHRS_Status == 2) ahrs_pub.publish(temp);
                 last_read_ahrs = ros::Time::now().toSec();
+                AHRS_OK = 1;
             }
+            if (FD_ISSET(gps.fd, &readfs))
+            { 
+                cbot_ros_msgs::GPS temp;
+                gps.read_gps(temp);
+                if(temp.GPS_status == 2) gps_pub.publish(temp);
+                last_read_gps = ros::Time::now().toSec();
+                GPS_OK = 1;
+            }
+
         }
         if((ros::Time::now().toSec() - last_read_gps) > 1)
         {

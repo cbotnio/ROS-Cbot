@@ -4,16 +4,21 @@ reference_longitude: 73.8041
 gps_port: "/tmp/gps-read"
 gps_baudrate: B9600
 gps_status: 1
+gps_type: 0
 
 ahrs_port: "/tmp/ahrs-read"
 ahrs_baudrate: B115200
 ahrs_status: 1
+ahrs_type: 0
 
 thrusters_port: "/tmp/thr-write"
 thrusters_baudrate: B9600
 
+gcs_port: "/tmp/GUI-read"
+gcs_baudrate: 9600
+
 guidance_on: 1
 thrusters_on: 1
 
-mode: "AUV"
-status: "Drive"
+mode: "ROV"
+status: "Stop"

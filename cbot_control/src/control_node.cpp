@@ -55,6 +55,7 @@ void ControllersNode::DynConfigCallback(cbot_control::ControllersConfig &config,
   pitch_ctrl_on = (int)(config.pitch_ctrl);
   depth_ctrl_on = (int)(config.depth_ctrl);
   speed_ctrl_on = (int)(config.speed_ctrl);
+  roll_ctrl_on = (int)(config.roll_ctrl);
   controller_on = (int)(config.controller_on);
 }
 
@@ -119,8 +120,9 @@ void ControllersNode::timerCallback(const ros::TimerEvent& event)
             thr_inputs.comm_mode_V = 0;
         
         // Speed Control
-        if(speed_ctrl_on)
+        if(speed_ctrl_on){
             thr_inputs.comm_mode_F = controllers_.velocity(desired_u, u, 0.1);
+        }
         else
             thr_inputs.comm_mode_F = 0;
 

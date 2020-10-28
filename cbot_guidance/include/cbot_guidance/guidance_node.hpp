@@ -9,7 +9,9 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Pose.h"
 #include "cbot_ros_msgs/ControllerInputs.h"
-#include "cbot_ros_msgs/GuidanceInputs.h"
+#include "cbot_ros_msgs/WaypointInputs.h"
+#include "cbot_ros_msgs/LineInputs.h"
+#include "cbot_ros_msgs/ArcInputs.h"
 #include "cbot_guidance/guidance.hpp"
 #include "cbot_guidance/utm.hpp"
 
@@ -37,10 +39,10 @@ class GuidanceNode {
 
         ros::NodeHandle nh_, private_nh_;
 
-        dynamic_reconfigure::Server<cbot_guidance::GuidanceConfig> dyn_config_server_;
-        void DynConfigCallback(cbot_guidance::GuidanceConfig &config, uint32_t level);
 
-        ros::ServiceServer guidance_inputs_server;
+        ros::ServiceServer waypoint_server;
+        ros::ServiceServer linefollow_server;
+        ros::ServiceServer arcfollow_server;
 
         ros::Publisher controller_inputs_pub;
         ros::Publisher guidance_status_pub;
@@ -54,24 +56,31 @@ class GuidanceNode {
         dynamic_reconfigure::IntParameter int_param;
         dynamic_reconfigure::Config conf;
 
+        dynamic_reconfigure::Server<cbot_guidance::GuidanceConfig> dyn_config_server_;
+        
+        void DynConfigCallback(cbot_guidance::GuidanceConfig &config, uint32_t level);
+
         void initializeParameters();
         bool initialized_parameters_;
 
         void navigationCallback(const geometry_msgs::Pose::ConstPtr& msg);
         
-        bool guidanceInputsCallback(cbot_ros_msgs::GuidanceInputs::Request &req, cbot_ros_msgs::GuidanceInputs::Response &res);        
+        bool waypointInputsCallback(cbot_ros_msgs::WaypointInputs::Request &req, cbot_ros_msgs::WaypointInputs::Response &res);
+        bool linefollowInputsCallback(cbot_ros_msgs::LineInputs::Request &req, cbot_ros_msgs::LineInputs::Response &res);
+        bool arcfollowInputsCallback(cbot_ros_msgs::ArcInputs::Request &req, cbot_ros_msgs::ArcInputs::Response &res);
         
         void timerCallback(const ros::TimerEvent& event);
 
         int guidance_on;
 
         double vehicle_pos_x, vehicle_pos_y;
-        double desired_pos_x1,desired_pos_y1,desired_pos_x2,desired_pos_y2;
+        double desired_pos_x1,desired_pos_y1,desired_pos_x2,desired_pos_y2,desired_pos_xc,desired_pos_yc;
         double desired_heading, desired_thrust, nominal_velocity, desired_pitch;
         
         //Flag to be used for sending the 0 control inputs only once when guidance is turned off. 
         //This removes control from guidance and allows user to directly change controller inputs
         int flag;
+        
         int parameter_flag;
 
         bool guidance_status;

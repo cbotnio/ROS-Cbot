@@ -1,39 +1,57 @@
-Safety
-	maxDepth : 10
-	maxPitch: 15
+
+constHeading ch3
+	vars:
+		heading: 0
+		timeout: 15
+	end
 end
+
+constHeading ch1
+	vars:
+		heading: 180
+		timeout: 15
+	end
+end
+
+constHeading ch2
+	vars:
+		heading: 0
+		timeout: 15
+	end
+end
+
 
 lfw L1
 	position1: (15.4507,73.8041)
-	position2: (15.4515, 73.8041)
+	position2: (15.4509, 73.8041)
 	speed:0.5
 	timeout: 10000
 end
 
 lfw L2
-	position1: (15.4515,73.8041)
-	position2: (15.4515, 73.8044)
+	position1: (15.4509,73.8041)
+	position2: (15.4509, 73.8043)
 	speed:0.5
 	timeout: 10000
 end
 
 lfw L3
-	position1: (15.4515,73.8044)
-	position2: (15.4507, 73.8044)
+	position1: (15.4519,73.8043)
+	position2: (15.4507, 73.8043)
 	speed:0.5
 	timeout: 10000
 end
 
 lfw L4
-	position1: (15.4507,73.8044)
-	position2: (15.4507, 73.8047)
+	position1: (15.4507,73.8043)
+	position2: (15.4507, 73.8045)
 	speed:0.5
 	timeout: 10000
 end
 
 lfw L5
-	position1: (15.4507,73.8047)
-	position2: (15.4515, 73.8047)
+	position1: (15.4507,73.8045)
+	position2: (15.4509, 73.8045)
 	speed:0.5
 	timeout: 10000
 end

@@ -3,19 +3,31 @@ Safety
 	maxPitch: 15
 end
 
-wpt Home
-	position: (15.4507,73.8041)
-	speed:0.5
-	heading: 0
-	captureRadius:0
-	slipRadius:0
-	timeout: 20000
+constHeading CH1
+	vars:
+		heading : 100
+		timeout: 100
+	end
+
+	constThrust CT1
+		vars:
+			cmf : 10
+			timeout: 10
+		end
+	end
+
+	wptFA Home
+		position: (15.4507,73.8041)
+		speed:0.5
+		captureRadius:0
+		slipRadius:0
+		timeout: 20000
+	end
 end
 
 wpt Home2
 	position: (15.4509,73.8043)
 	speed:0.5
-	heading: 0
 	captureRadius:0
 	slipRadius:0
 	timeout: 20000

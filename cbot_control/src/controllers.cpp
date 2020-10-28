@@ -13,7 +13,7 @@ Controllers::Controllers(const ros::NodeHandle& nh,const ros::NodeHandle& privat
 Controllers::~Controllers(){}
 
 void Controllers::initializeParameters(){
-    // Incase there are any others parameters to be added which are not on the dynamic_reconfigure server.
+    // Incase there are any others parameters to be added
     initialized_parameters_ = true;
 }
 

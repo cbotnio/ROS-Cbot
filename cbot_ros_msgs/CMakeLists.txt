@@ -10,7 +10,6 @@ add_message_files(
   GPS.msg
 )
 
-
 add_message_files(
   DIRECTORY actuators/msg
   FILES
@@ -25,6 +24,12 @@ add_message_files(
 )
 
 add_message_files(
+  DIRECTORY guidance/msg
+  FILES
+  Pose.msg
+)
+
+add_message_files(
   DIRECTORY monitoring/msg
   FILES
   SensorsStatus.msg
@@ -33,14 +38,16 @@ add_message_files(
 add_service_files(
   DIRECTORY guidance/srv
   FILES
-  GuidanceInputs.srv
+  WaypointInputs.srv
+  LineInputs.srv
+  ArcInputs.srv
 )
 
 
 add_service_files(
   DIRECTORY mission_parser/srv
   FILES
-  MissInputs.srv
+  String.srv
 )
 
 generate_messages(

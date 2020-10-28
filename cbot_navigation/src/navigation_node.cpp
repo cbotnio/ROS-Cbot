@@ -22,8 +22,8 @@ void timerCallback(const ros::TimerEvent& event)
 {
     UTM::LLtoUTM(23, latitude, longitude, &UTMN, &UTME, Zone);
     geometry_msgs::Pose temp;
-    temp.position.y = UTME;// - UTME_ref;
-    temp.position.x = UTMN;// - UTMN_ref;
+    temp.position.y = UTME;
+    temp.position.x = UTMN;
     navigation_pub.publish(temp);
 
 }
